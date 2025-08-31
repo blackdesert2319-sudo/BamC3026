@@ -84,7 +84,7 @@
       border: 2px solid #334155; margin: 12px auto; position: relative;
       box-shadow: inset 0 0 18px #0008;
     }
-    .lamp.flash { animation: flash 2s ease-in-out; }
+    .lamp.flash { animation: flash 3s ease-in-out; }
     @keyframes flash {
       0%, 100% { box-shadow: 0 0 0px 0 rgba(255,255,255,0), 0 0 0px 0 rgba(34,197,94,0); background: radial-gradient(circle at 30% 30%, #111827, #0b1224); }
       10%, 90% { box-shadow: 0 0 40px 16px rgba(34,197,94,0.7), 0 0 80px 40px rgba(34,197,94,0.35); background: radial-gradient(circle at 30% 30%, #16a34a, #14532d); }
@@ -217,20 +217,15 @@
     };
     const fmt = (d) => new Date(d).toLocaleTimeString('vi-VN');
 
-    // Web Audio – beep 2s chỉ trên máy thắng
-    let audioCtx;
+    // Phát âm thanh chuông từ file và đặt âm lượng
     function playBeep() {
       try {
-        audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-        const o = audioCtx.createOscillator();
-        const g = audioCtx.createGain();
-        o.type = 'sine'; o.frequency.value = 880; // A5
-        g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.4, audioCtx.currentTime + 0.02);
-        g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 2);
-        o.connect(g).connect(audioCtx.destination);
-        o.start(); o.stop(audioCtx.currentTime + 2);
-      } catch {}
+        const audio = new Audio('https://github.com/blackdesert2319-sudo/BamC3026/raw/refs/heads/main/bam_gianh_quyen_tra_loi.mp3');
+        audio.volume = 1;
+        audio.play();
+      } catch (e) {
+        console.error("Lỗi khi phát âm thanh:", e);
+      }
     }
 
     // ======= 4) TRẠNG THÁI CỤC BỘ =======
