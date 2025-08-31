@@ -10,11 +10,11 @@
             margin-top: 50px;
             background-color: #f0f0f0;
         }
+        .screen {
+            display: none;
+        }
         #initial-screen {
             display: block;
-        }
-        #game-screen {
-            display: none;
         }
         .button-container {
             margin-top: 50px;
@@ -59,25 +59,29 @@
 </head>
 <body>
 
-<div id="initial-screen">
+<div id="initial-screen" class="screen">
     <h1>Ứng dụng Bấm Chuông</h1>
     <p>Nhập tên và số người để tham gia</p>
     <label for="playerName">Tên của bạn:</label><br>
     <input type="text" id="playerName" name="playerName"><br><br>
-
+    
     <label for="groupSize">Số người chơi trong nhóm:</label><br>
     <input type="number" id="groupSize" name="groupSize" value="2" min="2"><br><br>
 
     <button id="joinButton">Tham gia</button>
-
+    
     <div id="statusMessage" style="margin-top: 20px;"></div>
 </div>
 
-<div id="game-screen">
+<div id="game-screen" class="screen">
     <div id="winner-display"></div>
     <div class="button-container">
         <button id="bellButton" class="bell-button">Bấm Chuông</button>
     </div>
+</div>
+
+<div id="loading-screen" class="screen">
+    <div id="loading-text" style="font-size: 20px; font-weight: bold;">Đang ghép nhóm...</div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -100,16 +104,33 @@
 
     const initialScreen = document.getElementById('initial-screen');
     const gameScreen = document.getElementById('game-screen');
+    const loadingScreen = document.getElementById('loading-screen');
     const joinButton = document.getElementById('joinButton');
     const playerNameInput = document.getElementById('playerName');
     const groupSizeInput = document.getElementById('groupSize');
-    const statusMessage = document.getElementById('statusMessage');
     const bellButton = document.getElementById('bellButton');
     const winnerDisplay = document.getElementById('winner-display');
 
     let myName = '';
     let groupRoomId = '';
     let groupSize = 0;
+    
+    // Play sound on click (bell ring)
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    function playSound() {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(440, audioContext.currentTime); // Frequency in Hz
+        gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.3); // Sound duration
+    }
 
     joinButton.addEventListener('click', () => {
         myName = playerNameInput.value;
@@ -120,23 +141,22 @@
         }
 
         initialScreen.style.display = 'none';
-        statusMessage.textContent = 'Đang ghép nhóm...';
-        statusMessage.style.display = 'block';
+        loadingScreen.style.display = 'block';
 
-        // Logic to find or create a group room
         database.ref('rooms').once('value').then(snapshot => {
-            let foundRoom = false;
+            let foundRoom = null;
             snapshot.forEach(childSnapshot => {
                 const room = childSnapshot.val();
-                if (room.groupSize === groupSize && room.players.length < groupSize && !room.gameActive) {
-                    groupRoomId = childSnapshot.key;
-                    const playersRef = database.ref(`rooms/${groupRoomId}/players`);
-                    playersRef.push({ name: myName, timestamp: Date.now() });
-                    foundRoom = true;
+                if (room.groupSize === groupSize && (!room.players || Object.keys(room.players).length < groupSize) && !room.gameActive) {
+                    foundRoom = { key: childSnapshot.key, players: room.players || {} };
                 }
             });
 
-            if (!foundRoom) {
+            if (foundRoom) {
+                groupRoomId = foundRoom.key;
+                const playersRef = database.ref(`rooms/${groupRoomId}/players`);
+                playersRef.push({ name: myName, timestamp: Date.now() });
+            } else {
                 groupRoomId = 'room_' + Date.now();
                 database.ref(`rooms/${groupRoomId}`).set({
                     groupSize: groupSize,
@@ -146,13 +166,17 @@
                 });
             }
 
-            // Listen for changes in the room
             database.ref(`rooms/${groupRoomId}`).on('value', (snapshot) => {
                 const room = snapshot.val();
-                if (!room) return;
-
-                if (room.players && room.players.length >= room.groupSize && !room.gameActive) {
-                    statusMessage.style.display = 'none';
+                if (!room) {
+                    resetGame();
+                    return;
+                }
+                
+                const playerCount = room.players ? Object.keys(room.players).length : 0;
+                
+                if (playerCount >= room.groupSize && !room.gameActive) {
+                    loadingScreen.style.display = 'none';
                     initialScreen.style.display = 'none';
                     gameScreen.style.display = 'block';
                     database.ref(`rooms/${groupRoomId}/gameActive`).set(true);
@@ -163,22 +187,19 @@
                     if (room.winner.name === myName) {
                         winnerDisplay.textContent = 'Bạn đã thắng!';
                         bellButton.classList.add('ringing');
-                        // Thêm âm thanh tại đây
+                        playSound(); // Play sound only for the winner
                     } else {
                         winnerDisplay.textContent = `Người thắng: ${room.winner.name}`;
                         bellButton.classList.add('disabled');
                     }
 
                     setTimeout(() => {
-                        if (room.winner.name === myName) {
-                            resetGame();
-                        }
-                    }, 3000); // Reset sau 3 giây
+                        database.ref(`rooms/${groupRoomId}/winner`).set(null);
+                    }, 3000);
                 } else {
-                     // Trạng thái reset
-                     bellButton.classList.remove('disabled');
-                     bellButton.classList.remove('ringing');
-                     winnerDisplay.textContent = 'Sẵn sàng! Bấm chuông giành quyền trả lời';
+                    bellButton.classList.remove('disabled');
+                    bellButton.classList.remove('ringing');
+                    winnerDisplay.textContent = 'Sẵn sàng! Bấm chuông giành quyền trả lời';
                 }
             });
         });
@@ -192,7 +213,9 @@
     });
 
     function resetGame() {
-        database.ref(`rooms/${groupRoomId}/winner`).set(null);
+        initialScreen.style.display = 'block';
+        gameScreen.style.display = 'none';
+        loadingScreen.style.display = 'none';
     }
 </script>
 </body>
