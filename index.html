@@ -1,227 +1,439 @@
 <!DOCTYPE html>
-<html>
+
+<html lang="vi">
+
 <head>
-    <title>Ứng dụng Bấm Chuông</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin-top: 50px;
-            background-color: #f0f0f0;
-        }
-        .screen {
-            display: none;
-        }
-        #initial-screen {
-            display: block;
-        }
-        .button-container {
-            margin-top: 50px;
-        }
-        .bell-button {
-            width: 200px;
-            height: 200px;
-            border-radius: 50%;
-            background-color: #ff4d4d; /* Red color */
-            border: none;
-            box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.3);
-            cursor: pointer;
-            outline: none;
-            transition: transform 0.2s, box-shadow 0.2s;
-            font-size: 24px;
-            font-weight: bold;
-            color: white;
-        }
-        .bell-button:active {
-            transform: translateY(4px);
-            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
-        }
-        .bell-button.disabled {
-            background-color: #ccc; /* Gray color */
-            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
-            cursor: not-allowed;
-        }
-        .bell-button.ringing {
-            animation: ring-animation 0.3s infinite alternate;
-        }
-        @keyframes ring-animation {
-            from { transform: scale(1); }
-            to { transform: scale(1.1); }
-        }
-        #winner-display {
-            font-size: 20px;
-            font-weight: bold;
-            color: #333;
-            margin-top: 20px;
-        }
-    </style>
+
+<meta charset="UTF-8">
+
+<title>Ứng dụng Bấm Chuông (Cải tiến)</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+
+body{font-family:Arial,sans-serif;text-align:center;margin:24px;background:#f8f9fa}
+
+.screen{display:none}
+
+.visible{display:block}
+
+.card{max-width:500px;margin:0 auto;background:#fff;padding:20px;border-radius:12px;box-shadow:0 8px 20px rgba(0,0,0,.1)}
+
+input,button{padding:10px;border-radius:8px;font-size:16px}
+
+input{width:100%;border:1px solid #ccc;margin-top:4px}
+
+button{border:none;cursor:pointer;font-weight:bold}
+
+.btn{background:#2f6fed;color:#fff;margin-top:12px}
+
+.btn-secondary{background:#eee;color:#333;margin-top:12px}
+
+.bell-button{width:200px;height:200px;border-radius:50%;background:#ff4d4d;color:#fff;font-size:22px;font-weight:bold;margin-top:24px;box-shadow:0 8px 15px rgba(0,0,0,.3);transition:transform .15s}
+
+.bell-button:active{transform:translateY(3px)}
+
+.bell-button.disabled{background:#bbb;cursor:not-allowed}
+
+.ringing{animation:ring .25s infinite alternate}
+
+@keyframes ring{from{transform:scale(1)}to{transform:scale(1.06)}}
+
+.badge{display:inline-block;background:#eef2ff;padding:4px 8px;border-radius:8px;margin-top:6px;font-weight:bold;font-family:monospace}
+
+.muted{color:#666;font-size:14px;margin-top:4px}
+
+</style>
+
 </head>
+
 <body>
 
-<div id="initial-screen" class="screen">
-    <h1>Ứng dụng Bấm Chuông</h1>
-    <p>Nhập tên và số người để tham gia</p>
-    <label for="playerName">Tên của bạn:</label><br>
-    <input type="text" id="playerName" name="playerName"><br><br>
-    
-    <label for="groupSize">Số người chơi trong nhóm:</label><br>
-    <input type="number" id="groupSize" name="groupSize" value="2" min="2"><br><br>
 
-    <button id="joinButton">Tham gia</button>
+
+<!-- Màn hình chọn -->
+
+<section id="home" class="screen visible">
+
+<div class="card">
+
+<h1>Ứng dụng Bấm Chuông</h1>
+
+<p class="muted">Tạo phòng hoặc nhập mã để tham gia</p>
+
+<h3>Tạo phòng</h3>
+
+<label>Số người:</label>
+
+<input type="number" id="createSize" value="2" min="2">
+
+<label>Tên của bạn:</label>
+
+<input type="text" id="createName">
+
+<button class="btn" id="createBtn">Tạo phòng</button>
+
+<hr>
+
+<h3>Tham gia phòng</h3>
+
+<label>Mã phòng (6 ký tự):</label>
+
+<input type="text" id="joinCode" maxlength="6">
+
+<label>Tên của bạn:</label>
+
+<input type="text" id="joinName">
+
+<button class="btn-secondary" id="joinBtn">Tham gia</button>
+
 </div>
 
-<div id="loading-screen" class="screen">
-    <div id="loading-text" style="font-size: 20px; font-weight: bold; margin-top: 50px;">Đang ghép nhóm...</div>
+</section>
+
+
+
+<!-- Màn hình chờ -->
+
+<section id="waiting" class="screen">
+
+<div class="card">
+
+<h2>Đang ghép nhóm...</h2>
+
+<p>Mã phòng: <span id="roomCode" class="badge"></span></p>
+
+<p class="muted">Chia sẻ mã cho người khác để cùng tham gia.</p>
+
+<button class="btn-secondary" id="backBtn">Quay lại</button>
+
 </div>
 
-<div id="game-screen" class="screen">
-    <div id="winner-display"></div>
-    <div class="button-container">
-        <button id="bellButton" class="bell-button">Bấm Chuông</button>
-    </div>
+</section>
+
+
+
+<!-- Màn hình chơi -->
+
+<section id="game" class="screen">
+
+<div class="card">
+
+<h2>Phòng: <span id="roomCodeGame" class="badge"></span></h2>
+
+<p id="winnerText" class="muted">Sẵn sàng! Bấm chuông để giành quyền</p>
+
+<button id="bellBtn" class="bell-button">Bấm Chuông</button>
+
+<p><strong>Người chơi:</strong> <span id="playersList"></span></p>
+
+<button class="btn-secondary" id="leaveBtn">Rời phòng</button>
+
 </div>
+
+</section>
+
+
+
+<audio id="bellSound" src="bell.mp3" preload="auto"></audio>
+
+
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
 <script>
-    // Firebase Config
-    const firebaseConfig = {
-        apiKey: "AIzaSyDjhVqrW8avY2z2O5DyOBniE0IMbWGNQRo",
-        authDomain: "bamchuong2026.firebaseapp.com",
-        projectId: "bamchuong2026",
-        storageBucket: "bamchuong2026.firebasestorage.app",
-        messagingSenderId: "962555043612",
-        appId: "1:962555043612:web:271885084f96c9c088a4d9",
-        measurementId: "G-W1ZHMRW2WL"
-    };
 
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const database = firebase.database();
+// --- Firebase ---
 
-    const initialScreen = document.getElementById('initial-screen');
-    const gameScreen = document.getElementById('game-screen');
-    const loadingScreen = document.getElementById('loading-screen');
-    const loadingText = document.getElementById('loading-text');
-    const joinButton = document.getElementById('joinButton');
-    const playerNameInput = document.getElementById('playerName');
-    const groupSizeInput = document.getElementById('groupSize');
-    const bellButton = document.getElementById('bellButton');
-    const winnerDisplay = document.getElementById('winner-display');
+const firebaseConfig = {
 
-    let myName = '';
-    let groupRoomId = '';
-    let groupSize = 0;
-    let myPlayerId = '';
+apiKey: "AIzaSyDjhVqrW8avY2z2O5DyOBniE0IMbWGNQRo",
 
-    // Play sound on click (bell ring)
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    function playSound() {
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
+authDomain: "bamchuong2026.firebaseapp.com",
 
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
-        gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+projectId: "bamchuong2026",
 
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
+storageBucket: "bamchuong2026.firebasestorage.app",
 
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + 0.3);
-    }
+messagingSenderId: "962555043612",
 
-    joinButton.addEventListener('click', () => {
-        myName = playerNameInput.value;
-        groupSize = parseInt(groupSizeInput.value);
-        if (myName.trim() === '' || groupSize < 2) {
-            alert('Vui lòng nhập tên và số người chơi hợp lệ.');
-            return;
-        }
+appId: "1:962555043612:web:271885084f96c9c088a4d9"
 
-        initialScreen.style.display = 'none';
-        loadingScreen.style.display = 'block';
-        loadingText.textContent = 'Đang ghép nhóm...';
-        
-        // Use a predictable room ID to ensure players find each other
-        groupRoomId = `room_${groupSize}`;
-        const roomRef = database.ref(`rooms/${groupRoomId}`);
+};
 
-        // Use Firebase transaction to handle simultaneous joins
-        roomRef.transaction((currentData) => {
-            if (currentData === null) {
-                // Room doesn't exist, create it
-                return {
-                    groupSize: groupSize,
-                    players: [{ name: myName }],
-                    gameActive: false,
-                    winner: null
-                };
-            } else if (currentData.players && currentData.players.length < groupSize) {
-                // Room exists and has space, join it
-                if (!currentData.players.some(p => p.name === myName)) {
-                    currentData.players.push({ name: myName });
-                }
-                return currentData;
-            } else {
-                // Room is full or already active, don't change
-                return;
-            }
-        }).then(() => {
-            // Once the transaction is complete, set up the listener
-            roomRef.on('value', (snapshot) => {
-                const room = snapshot.val();
-                if (!room) {
-                    resetGame();
-                    return;
-                }
-                
-                const playerCount = room.players ? Object.keys(room.players).length : 0;
-                
-                if (playerCount >= room.groupSize && !room.gameActive) {
-                    loadingScreen.style.display = 'none';
-                    gameScreen.style.display = 'block';
-                    roomRef.child('gameActive').set(true);
-                    winnerDisplay.textContent = 'Sẵn sàng! Bấm chuông giành quyền trả lời';
-                }
+firebase.initializeApp(firebaseConfig);
 
-                if (room.winner) {
-                    if (room.winner.name === myName) {
-                        winnerDisplay.textContent = 'Bạn đã thắng!';
-                        bellButton.classList.add('ringing');
-                        playSound(); // Play sound only for the winner
-                    } else {
-                        winnerDisplay.textContent = `Người thắng: ${room.winner.name}`;
-                        bellButton.classList.add('disabled');
-                    }
+const db = firebase.database();
 
-                    setTimeout(() => {
-                        roomRef.child('winner').set(null);
-                    }, 3000);
-                } else {
-                    bellButton.classList.remove('disabled');
-                    bellButton.classList.remove('ringing');
-                    if (gameScreen.style.display === 'block') {
-                        winnerDisplay.textContent = 'Sẵn sàng! Bấm chuông giành quyền trả lời';
-                    }
-                }
-            });
-        });
-    });
 
-    bellButton.addEventListener('click', () => {
-        if (!bellButton.classList.contains('disabled')) {
-            const winnerRef = database.ref(`rooms/${groupRoomId}/winner`);
-            winnerRef.set({ name: myName, timestamp: Date.now() });
-        }
-    });
 
-    function resetGame() {
-        initialScreen.style.display = 'block';
-        gameScreen.style.display = 'none';
-        loadingScreen.style.display = 'none';
-    }
+// --- Biến toàn cục ---
+
+let user = null;
+
+let roomRef = null;
+
+let roomCode = '';
+
+let myName = '';
+
+let groupSize = 0;
+
+
+
+// --- Auth ẩn danh ---
+
+firebase.auth().onAuthStateChanged(u => user = u);
+
+firebase.auth().signInAnonymously();
+
+
+
+// --- DOM ---
+
+const screens = {
+
+home: document.getElementById('home'),
+
+waiting: document.getElementById('waiting'),
+
+game: document.getElementById('game')
+
+};
+
+const roomCodeEl = document.getElementById('roomCode');
+
+const roomCodeGameEl = document.getElementById('roomCodeGame');
+
+const playersListEl = document.getElementById('playersList');
+
+const winnerText = document.getElementById('winnerText');
+
+const bellBtn = document.getElementById('bellBtn');
+
+const bellSound = document.getElementById('bellSound');
+
+
+
+function show(id) {
+
+Object.values(screens).forEach(s => s.classList.remove('visible'));
+
+screens[id].classList.add('visible');
+
+}
+
+
+
+function genCode() {
+
+const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+let out = '';
+
+for (let i=0;i<6;i++) out += chars[Math.floor(Math.random()*chars.length)];
+
+return out;
+
+}
+
+
+
+function sanitize(str) {
+
+return (str||'').trim().slice(0,30);
+
+}
+
+
+
+// --- Tạo phòng ---
+
+document.getElementById('createBtn').onclick = async () => {
+
+const size = parseInt(document.getElementById('createSize').value);
+
+const name = sanitize(document.getElementById('createName').value);
+
+if (!name || size<2 || !user) { alert('Vui lòng nhập đúng thông tin'); return; }
+
+myName = name; groupSize = size; roomCode = genCode();
+
+roomRef = db.ref('rooms/'+roomCode);
+
+await roomRef.set({
+
+groupSize: size,
+
+gameActive: false,
+
+winner: null,
+
+players: { [user.uid]: {name: name} }
+
+});
+
+roomCodeEl.textContent = roomCode;
+
+attachListener();
+
+show('waiting');
+
+};
+
+
+
+// --- Tham gia phòng ---
+
+document.getElementById('joinBtn').onclick = async () => {
+
+const code = sanitize(document.getElementById('joinCode').value).toUpperCase();
+
+const name = sanitize(document.getElementById('joinName').value);
+
+if (!code || !name || !user) { alert('Thông tin chưa hợp lệ'); return; }
+
+const ref = db.ref('rooms/'+code);
+
+const snap = await ref.get();
+
+const room = snap.val();
+
+if (!room) { alert('Không tìm thấy phòng'); return; }
+
+const names = Object.values(room.players||{}).map(p=>p.name);
+
+if (names.includes(name)) { alert('Tên này đã được dùng trong phòng'); return; }
+
+if (names.length >= room.groupSize) { alert('Phòng đã đủ người'); return; }
+
+myName=name; roomCode=code; groupSize=room.groupSize; roomRef=ref;
+
+await ref.child('players').child(user.uid).set({name:name});
+
+roomCodeEl.textContent = roomCode;
+
+attachListener();
+
+show('waiting');
+
+};
+
+
+
+// --- Lắng nghe phòng ---
+
+function attachListener() {
+
+roomRef.on('value', snap => {
+
+const room = snap.val(); if (!room) { resetHome(); return; }
+
+const names = Object.values(room.players||{}).map(p=>p.name);
+
+playersListEl.textContent = names.join(', ');
+
+if (names.length >= room.groupSize && !room.gameActive)
+
+roomRef.child('gameActive').set(true);
+
+if (room.gameActive) {
+
+roomCodeGameEl.textContent = roomCode;
+
+show('game');
+
+}
+
+if (room.winner) {
+
+if (room.winner.name===myName) {
+
+winnerText.textContent='Bạn đã thắng!';
+
+bellBtn.classList.add('ringing');
+
+bellSound.currentTime=0; bellSound.play().catch(()=>{});
+
+} else {
+
+winnerText.textContent='Người thắng: '+room.winner.name;
+
+bellBtn.classList.add('disabled');
+
+}
+
+} else {
+
+winnerText.textContent='Sẵn sàng! Bấm chuông để giành quyền';
+
+bellBtn.classList.remove('disabled','ringing');
+
+}
+
+});
+
+}
+
+
+
+// --- Nhấn chuông ---
+
+bellBtn.onclick = () => {
+
+if (bellBtn.classList.contains('disabled')) return;
+
+roomRef.child('winner').transaction(curr => {
+
+if (curr) return;
+
+return {name:myName,ts:Date.now()};
+
+});
+
+setTimeout(()=> roomRef.child('winner').set(null),3000);
+
+};
+
+
+
+// --- Thoát phòng ---
+
+document.getElementById('leaveBtn').onclick = ()=>{ cleanup(); resetHome(); };
+
+document.getElementById('backBtn').onclick = ()=>{ cleanup(); resetHome(); };
+
+window.addEventListener('beforeunload', cleanup);
+
+
+
+function cleanup() {
+
+if (roomRef && user) {
+
+roomRef.child('players').child(user.uid).remove();
+
+}
+
+}
+
+function resetHome() {
+
+if (roomRef) roomRef.off();
+
+roomRef=null; roomCode=''; myName=''; groupSize=0;
+
+show('home');
+
+}
+
 </script>
+
 </body>
+
 </html>
