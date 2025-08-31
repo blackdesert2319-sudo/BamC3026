@@ -113,7 +113,8 @@
     let myName = '';
     let groupRoomId = '';
     let groupSize = 0;
-    
+    let myPlayerId = '';
+
     // Play sound on click (bell ring)
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
     function playSound() {
@@ -144,29 +145,31 @@
         loadingText.textContent = 'Đang ghép nhóm...';
         
         // Use a predictable room ID to ensure players find each other
-        groupRoomId = 'room_' + groupSize;
-
+        groupRoomId = `room_${groupSize}`;
         const roomRef = database.ref(`rooms/${groupRoomId}`);
-        roomRef.once('value').then(snapshot => {
-            const roomData = snapshot.val();
-            let playersRef;
 
-            if (roomData && roomData.groupSize === groupSize && (!roomData.players || Object.keys(roomData.players).length < groupSize)) {
-                // Room exists and has space, join it
-                playersRef = roomRef.child('players');
-                playersRef.push({ name: myName, timestamp: Date.now() });
-            } else {
-                // Room doesn't exist or is full, create a new one
-                roomRef.set({
+        // Use Firebase transaction to handle simultaneous joins
+        roomRef.transaction((currentData) => {
+            if (currentData === null) {
+                // Room doesn't exist, create it
+                return {
                     groupSize: groupSize,
-                    players: [{ name: myName, timestamp: Date.now() }],
+                    players: [{ name: myName }],
                     gameActive: false,
                     winner: null
-                });
-                playersRef = roomRef.child('players');
+                };
+            } else if (currentData.players && currentData.players.length < groupSize) {
+                // Room exists and has space, join it
+                if (!currentData.players.some(p => p.name === myName)) {
+                    currentData.players.push({ name: myName });
+                }
+                return currentData;
+            } else {
+                // Room is full or already active, don't change
+                return;
             }
-
-            // Listen for changes in the room
+        }).then(() => {
+            // Once the transaction is complete, set up the listener
             roomRef.on('value', (snapshot) => {
                 const room = snapshot.val();
                 if (!room) {
@@ -222,4 +225,3 @@
 </script>
 </body>
 </html>
-
