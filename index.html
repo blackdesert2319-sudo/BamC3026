@@ -228,6 +228,13 @@
       }
     }
 
+    // Danh sách các hậu tố tên con vật
+    const animalNames = [
+      "Cá Heo", "Hổ", "Sư Tử", "Thỏ", "Gấu", "Chim Cánh Cụt", "Hươu Cao Cổ",
+      "Voi", "Sói", "Cáo", "Cá Sấu", "Lợn", "Cừu", "Hươu", "Khỉ", "Bò",
+      "Gà", "Ngựa", "Mèo", "Chó", "Hải Cẩu", "Cá", "Gấu Trúc", "Rắn", "Rùa"
+    ];
+
     // ======= 4) TRẠNG THÁI CỤC BỘ =======
     const store = {
       me: null,         // {id, name}
@@ -268,7 +275,9 @@
     function randomCode() { return Math.floor(100000 + Math.random()*900000).toString().slice(0,5); }
 
     async function createRoom() {
-      const name = ($('playerName').value || '').trim() || 'Chủ phòng';
+      let name = ($('playerName').value || '').trim() || 'Chủ phòng';
+      const animal = animalNames[Math.floor(Math.random() * animalNames.length)];
+      name = `${name} ${animal}`;
       const code = randomCode();
       const meId = crypto.randomUUID();
       store.me = { id: meId, name }; store.room = code; store.isHost = true; saveLocal();
@@ -288,7 +297,9 @@
     }
 
     async function joinRoom() {
-      const name = ($('playerName').value || '').trim() || 'Người chơi';
+      let name = ($('playerName').value || '').trim() || 'Người chơi';
+      const animal = animalNames[Math.floor(Math.random() * animalNames.length)];
+      name = `${name} ${animal}`;
       const input = prompt('Nhập mã phòng (5 số):');
       if (!input) return;
       const code = input.replace(/\D/g, '').slice(0,5);
@@ -419,7 +430,7 @@
         setBuzzerEnabled(!!s.canBuzz);
         if (s.lastWinner) {
           $('currentWinner').textContent = s.lastWinner.name;
-          // Nếu chính mình thắng -> đèn nháy + chuông 2s
+          // Nếu chính mình thắng -> đèn nháy + chuông 3s
           if (s.lastWinner.id === store.me.id) {
             const lamp = $('lamp'); lamp.classList.remove('flash'); void lamp.offsetWidth; lamp.classList.add('flash');
             playBeep();
