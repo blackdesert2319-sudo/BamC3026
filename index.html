@@ -69,8 +69,10 @@
     <input type="number" id="groupSize" name="groupSize" value="2" min="2"><br><br>
 
     <button id="joinButton">Tham gia</button>
-    
-    <div id="statusMessage" style="margin-top: 20px;"></div>
+</div>
+
+<div id="loading-screen" class="screen" style="display: block;">
+    <div id="loading-text" style="font-size: 20px; font-weight: bold; margin-top: 50px;"></div>
 </div>
 
 <div id="game-screen" class="screen">
@@ -78,10 +80,6 @@
     <div class="button-container">
         <button id="bellButton" class="bell-button">Bấm Chuông</button>
     </div>
-</div>
-
-<div id="loading-screen" class="screen">
-    <div id="loading-text" style="font-size: 20px; font-weight: bold;">Đang ghép nhóm...</div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -105,6 +103,7 @@
     const initialScreen = document.getElementById('initial-screen');
     const gameScreen = document.getElementById('game-screen');
     const loadingScreen = document.getElementById('loading-screen');
+    const loadingText = document.getElementById('loading-text');
     const joinButton = document.getElementById('joinButton');
     const playerNameInput = document.getElementById('playerName');
     const groupSizeInput = document.getElementById('groupSize');
@@ -142,30 +141,14 @@
 
         initialScreen.style.display = 'none';
         loadingScreen.style.display = 'block';
+        loadingText.textContent = 'Đang ghép nhóm...';
+        
+        // Use a predictable room ID to ensure players find each other
+        groupRoomId = 'room_' + groupSize;
 
-        database.ref('rooms').once('value').then(snapshot => {
-            let foundRoom = null;
-            snapshot.forEach(childSnapshot => {
-                const room = childSnapshot.val();
-                if (room.groupSize === groupSize && (!room.players || Object.keys(room.players).length < groupSize) && !room.gameActive) {
-                    foundRoom = { key: childSnapshot.key, players: room.players || {} };
-                }
-            });
-
-            if (foundRoom) {
-                groupRoomId = foundRoom.key;
-                const playersRef = database.ref(`rooms/${groupRoomId}/players`);
-                playersRef.push({ name: myName, timestamp: Date.now() });
-            } else {
-                groupRoomId = 'room_' + Date.now();
-                database.ref(`rooms/${groupRoomId}`).set({
-                    groupSize: groupSize,
-                    players: [{ name: myName, timestamp: Date.now() }],
-                    gameActive: false,
-                    winner: null
-                });
-            }
-
+        const playersRef = database.ref(`rooms/${groupRoomId}/players`);
+        playersRef.push({ name: myName, timestamp: Date.now() }).then(() => {
+            // Listen for changes in the room
             database.ref(`rooms/${groupRoomId}`).on('value', (snapshot) => {
                 const room = snapshot.val();
                 if (!room) {
@@ -177,7 +160,6 @@
                 
                 if (playerCount >= room.groupSize && !room.gameActive) {
                     loadingScreen.style.display = 'none';
-                    initialScreen.style.display = 'none';
                     gameScreen.style.display = 'block';
                     database.ref(`rooms/${groupRoomId}/gameActive`).set(true);
                     winnerDisplay.textContent = 'Sẵn sàng! Bấm chuông giành quyền trả lời';
