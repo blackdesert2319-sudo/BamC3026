@@ -6,218 +6,201 @@
   <style>
     body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
     .hidden { display: none; }
-    button { padding: 10px 20px; margin: 5px; font-size: 16px; }
-    #status { margin: 20px; font-size: 20px; font-weight: bold; }
-    #questionBox { font-size: 24px; margin: 20px; }
+    .btn { padding: 10px 20px; margin: 5px; font-size: 16px; cursor: pointer; }
+    .success { background: #4CAF50; color: white; }
+    .danger { background: #f44336; color: white; }
+    .warning { background: #ff9800; color: white; }
+    .info { background: #2196F3; color: white; }
+    #toast {
+      visibility: hidden; min-width: 200px; margin-left: -100px;
+      background-color: #333; color: #fff; text-align: center; border-radius: 5px;
+      padding: 10px; position: fixed; z-index: 1; left: 50%; bottom: 30px;
+    }
+    #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
+    @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
+    @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
   </style>
 </head>
 <body>
-  <h1>📢 Game Bấm Chuông</h1>
+  <h1>Game Bấm Chuông</h1>
 
-  <div id="roleSelect">
-    <button onclick="chooseRole('teacher')">Tôi là Giáo viên</button>
-    <button onclick="chooseRole('student')">Tôi là Học sinh</button>
+  <!-- Trang Home -->
+  <div id="homePage">
+    <input id="nameInput" placeholder="Tên của bạn">
+    <button class="btn success" id="btnCreate">Tạo phòng (Giáo viên)</button>
+    <br><br>
+    <input id="codeInput" placeholder="Mã phòng">
+    <button class="btn info" id="btnJoin">Vào phòng (Học sinh)</button>
   </div>
 
-  <!-- Giáo viên -->
-  <div id="teacherUI" class="hidden">
-    <h2>👩‍🏫 Giáo viên</h2>
-    <button onclick="createRoom()">Tạo phòng</button>
-    <input id="teacherRoomId" placeholder="Mã phòng" readonly>
-    <div id="teacherControls" class="hidden">
-      <button onclick="startRound()">BẮT ĐẦU</button>
-      <button onclick="markCorrect()">✅ Đúng</button>
-      <button onclick="markWrong()">❌ Sai</button>
-      <button onclick="resetGame()">RESET</button>
-      <div id="status"></div>
+  <!-- Trang Host -->
+  <div id="hostPage" class="hidden">
+    <h2>Phòng <span id="roomCode"></span></h2>
+    <div class="grid2">
+      <button class="btn success" id="btnStart">RESET VÒNG</button>
+      <button class="btn danger" id="btnExit">EXIT (Giải tán phòng)</button>
     </div>
+    <h3>Danh sách người chơi</h3>
+    <ul id="playerList"></ul>
+    <h3>Kết quả vòng</h3>
+    <p>Người thắng: <span id="roundWinner">—</span></p>
+    <p id="roundInfo"></p>
   </div>
 
-  <!-- Học sinh -->
-  <div id="studentUI" class="hidden">
-    <h2>👨‍🎓 Học sinh</h2>
-    <input id="roomInput" placeholder="Nhập mã phòng">
-    <input id="playerName" placeholder="Tên của bạn">
-    <button onclick="joinRoom()">Vào phòng</button>
-    <div id="studentControls" class="hidden">
-      <button id="buzzBtn" onclick="buzz()">🔔 Bấm Chuông</button>
-      <div id="questionBox"></div>
-      <div id="status"></div>
-    </div>
+  <!-- Trang Player -->
+  <div id="playerPage" class="hidden">
+    <h2>Phòng <span id="roomCode2"></span></h2>
+    <h3>Xin chào <span id="playerName"></span></h3>
+    <button class="btn success" id="btnBuzzer">BẤM CHUÔNG</button>
+    <p id="statusText">Đang chờ giáo viên bắt đầu…</p>
+    <p>Người thắng vòng này: <span id="winnerText">—</span></p>
   </div>
 
+  <div id="toast"></div>
+
+  <!-- Firebase + App -->
   <script type="module">
-    // Import Firebase
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
-    import { getDatabase, ref, set, get, onValue, update, push, child } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
+    import { getDatabase, ref, set, get, onValue, push, runTransaction, remove } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
 
-    // Cấu hình Firebase của bạn
     const firebaseConfig = {
       apiKey: "AIzaSyAAdt8pjiOTBCFuDEv_1BWZlPQYtJBWdZY",
       authDomain: "appchuong-c3fb8.firebaseapp.com",
+      databaseURL: "https://appchuong-c3fb8-default-rtdb.firebaseio.com",
       projectId: "appchuong-c3fb8",
       storageBucket: "appchuong-c3fb8.firebasestorage.app",
       messagingSenderId: "794046720932",
       appId: "1:794046720932:web:8fe3166394b7e366dbaf31",
-      measurementId: "G-1W7BYFTQNX",
-      databaseURL: "https://appchuong-c3fb8-default-rtdb.firebaseio.com/"
+      measurementId: "G-1W7BYFTQNX"
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    let role = null;
-    let currentRoomId = null;
-    let playerId = null;
-    let playerName = null;
-
-    // Chọn vai trò
-    window.chooseRole = (r) => {
-      role = r;
-      document.getElementById("roleSelect").classList.add("hidden");
-      if (r === "teacher") {
-        document.getElementById("teacherUI").classList.remove("hidden");
-      } else {
-        document.getElementById("studentUI").classList.remove("hidden");
-      }
+    // tiện ích
+    const $ = id => document.getElementById(id);
+    const toast = (msg) => {
+      const x = $("toast");
+      x.textContent = msg;
+      x.className = "show";
+      setTimeout(() => { x.className = x.className.replace("show", ""); }, 3000);
     };
 
-    // Giáo viên tạo phòng
-    window.createRoom = () => {
-      const roomId = Math.floor(1000 + Math.random() * 9000).toString();
-      set(ref(db, "rooms/" + roomId), {
-        state: {
-          canBuzz: false,
-          winnerId: null,
-          winnerName: null,
-          question: null,
-          currentPlayer: null
-        },
-        players: {}
+    let store = { me: null };
+
+    function switchPage(id) {
+      ["homePage", "hostPage", "playerPage"].forEach(p => $(p).classList.add("hidden"));
+      $(id).classList.remove("hidden");
+    }
+
+    function randomCode() {
+      return Math.floor(1000 + Math.random() * 9000).toString();
+    }
+
+    // Tạo phòng
+    $("btnCreate").onclick = async () => {
+      const name = $("nameInput").value.trim();
+      if (!name) return toast("Nhập tên!");
+      const code = randomCode();
+      store.me = { id: Date.now().toString(), name, isHost: true };
+      await set(ref(db, "rooms/" + code), {
+        hostId: store.me.id,
+        state: { round: 0, canBuzz: false, lastWinner: null },
+        players: { [store.me.id]: { name } }
       });
-      currentRoomId = roomId;
-      document.getElementById("teacherRoomId").value = roomId;
-      document.getElementById("teacherControls").classList.remove("hidden");
-      listenRoom(roomId);
+      $("roomCode").textContent = code;
+      switchPage("hostPage");
+      bindHost(code);
     };
 
-    // Học sinh vào phòng
-    window.joinRoom = async () => {
-      const roomId = document.getElementById("roomInput").value.trim();
-      const name = document.getElementById("playerName").value.trim();
-      if (!roomId || !name) return alert("Nhập mã phòng và tên");
+    // Vào phòng
+    $("btnJoin").onclick = async () => {
+      const name = $("nameInput").value.trim();
+      const code = $("codeInput").value.trim();
+      if (!name || !code) return toast("Nhập tên và mã phòng!");
+      const snap = await get(ref(db, "rooms/" + code));
+      if (!snap.exists()) return toast("Phòng không tồn tại");
+      store.me = { id: Date.now().toString(), name, isHost: false };
+      await set(ref(db, "rooms/" + code + "/players/" + store.me.id), { name });
+      $("roomCode2").textContent = code;
+      $("playerName").textContent = name;
+      switchPage("playerPage");
+      bindPlayer(code);
+    };
 
-      const snap = await get(ref(db, "rooms/" + roomId));
-      if (!snap.exists()) return alert("Phòng không tồn tại");
-
-      currentRoomId = roomId;
-      playerId = push(child(ref(db), "tmp")).key;
-
-      // Xử lý trùng tên
-      const players = snap.val().players || {};
-      let finalName = name;
-      let count = 0;
-      Object.values(players).forEach(p => {
-        if (p.name.startsWith(name)) count++;
+    // Bắt đầu vòng mới
+    async function startRound(code) {
+      await runTransaction(ref(db, `rooms/${code}/state`), (s) => {
+        if (!s) s = {};
+        s.round = (s.round || 0) + 1;
+        s.canBuzz = true;
+        s.lastWinner = null;
+        s.lastAt = null;
+        return s;
       });
-      if (count > 0) finalName = `${name} ${count + 1}`;
-      playerName = finalName;
+      $("roundWinner").textContent = "—";
+      $("roundInfo").textContent = "Vòng mới!";
+      $("statusText").textContent = "Đang chờ bấm…";
+    }
 
-      await set(ref(db, "rooms/" + roomId + "/players/" + playerId), {
-        name: playerName
+    function bindHost(code) {
+      $("btnStart").onclick = async () => {
+        await startRound(code);
+        toast("Đã reset vòng mới");
+      };
+      $("btnExit").onclick = async () => {
+        await remove(ref(db, "rooms/" + code));
+        switchPage("homePage");
+      };
+      onValue(ref(db, "rooms/" + code + "/players"), (snap) => {
+        $("playerList").innerHTML = "";
+        snap.forEach(ch => {
+          const li = document.createElement("li");
+          li.textContent = ch.val().name;
+          $("playerList").appendChild(li);
+        });
       });
-
-      document.getElementById("studentControls").classList.remove("hidden");
-      listenRoom(roomId);
-    };
-
-    // Giáo viên bắt đầu vòng
-    window.startRound = () => {
-      if (!currentRoomId) return;
-      const a = Math.floor(Math.random() * 6);
-      let b;
-      do { b = Math.floor(Math.random() * 6); } while (b === a);
-
-      update(ref(db, "rooms/" + currentRoomId + "/state"), {
-        canBuzz: true,
-        winnerId: null,
-        winnerName: null,
-        currentPlayer: null,
-        question: { a, b }
-      });
-    };
-
-    // Học sinh bấm chuông
-    window.buzz = () => {
-      if (!currentRoomId || !playerId) return;
-      const questionRef = ref(db, "rooms/" + currentRoomId + "/state/question");
-      get(questionRef).then(snap => {
-        if (!snap.exists()) return;
-        const q = snap.val();
-        const ans = prompt(`${q.a} + ${q.b} = ?`);
-        if (ans && parseInt(ans) === q.a + q.b) {
-          const stateRef = ref(db, "rooms/" + currentRoomId + "/state");
-          get(stateRef).then(s => {
-            const st = s.val();
-            if (st.canBuzz && !st.winnerId) {
-              update(stateRef, {
-                winnerId: playerId,
-                winnerName: playerName,
-                canBuzz: false,
-                currentPlayer: playerId
-              });
-            }
-          });
-        } else {
-          alert("Sai rồi!");
-        }
-      });
-    };
-
-    // Giáo viên đánh dấu đúng
-    window.markCorrect = () => {
-      if (!currentRoomId) return;
-      document.getElementById("status").innerText = "✅ Câu trả lời đúng!";
-    };
-
-    // Giáo viên đánh dấu sai -> mở mini round
-    window.markWrong = () => {
-      if (!currentRoomId) return;
-      startRound(); // tạo phép toán mới cho mini round
-    };
-
-    // Giáo viên reset
-    window.resetGame = () => {
-      if (!currentRoomId) return;
-      update(ref(db, "rooms/" + currentRoomId + "/state"), {
-        canBuzz: false,
-        winnerId: null,
-        winnerName: null,
-        currentPlayer: null,
-        question: null
-      });
-      document.getElementById("status").innerText = "";
-    };
-
-    // Lắng nghe phòng
-    function listenRoom(roomId) {
-      onValue(ref(db, "rooms/" + roomId + "/state"), snap => {
-        if (!snap.exists()) return;
+      onValue(ref(db, "rooms/" + code + "/state"), (snap) => {
         const st = snap.val();
-
-        // Hiển thị câu hỏi cho học sinh
-        if (role === "student") {
-          const qb = document.getElementById("questionBox");
-          if (st.question) {
-            qb.innerText = `${st.question.a} + ${st.question.b} = ?`;
-          } else {
-            qb.innerText = "";
-          }
+        if (!st) return;
+        if (st.lastWinner) {
+          $("roundWinner").textContent = st.lastWinner.name;
+          $("roundInfo").textContent = `Người thắng ở vòng ${st.round}`;
         }
+      });
+    }
 
-        // Hiển thị trạng thái chung
-        if (st.winnerName) {
-          document.getElementById("status").innerText = `🏆 ${st.winnerName} chiến thắng!`;
+    function bindPlayer(code) {
+      $("btnBuzzer").onclick = async () => {
+        try {
+          const a = Math.floor(Math.random() * 6);
+          let b; do { b = Math.floor(Math.random() * 6); } while (b === a);
+          const ans = a + b;
+          const input = prompt(`Giải nhanh: ${a} + ${b} = ?`);
+          if (input === null) return;
+          if (parseInt(input) !== ans) {
+            toast("Sai phép toán, không được ghi nhận!");
+            return;
+          }
+          const stateRef = ref(db, `rooms/${code}/state`);
+          const res = await runTransaction(stateRef, (s) => {
+            if (!s) return s;
+            if (!s.canBuzz) return s;
+            s.canBuzz = false;
+            s.lastWinner = { id: store.me.id, name: store.me.name };
+            s.lastAt = Date.now();
+            return s;
+          });
+        } catch (e) { console.error(e); }
+      };
+      onValue(ref(db, "rooms/" + code + "/state"), (snap) => {
+        const st = snap.val();
+        if (!st) return;
+        if (st.lastWinner) {
+          $("winnerText").textContent = st.lastWinner.name;
+          $("statusText").textContent = "Đã có người thắng!";
+        } else {
+          $("winnerText").textContent = "—";
         }
       });
     }
