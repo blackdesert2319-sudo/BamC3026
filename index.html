@@ -1,56 +1,161 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <title>Game Bấm Chuông</title>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ai Nhanh Hơn — Bấm Chuông (C1)</title>
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; background: #222; color: #fff; }
-    h1 { color: #4ade80; }
-    button { margin: 10px; padding: 15px 30px; font-size: 20px; border-radius: 10px; cursor: pointer; }
-    .buzz { background: #16a34a; color: white; font-weight: bold; }
-    .disabled { background: #555 !important; cursor: not-allowed; }
-    #popup { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); justify-content:center; align-items:center; }
-    #popupContent { background:#333; padding:20px; border-radius:10px; }
-    input { font-size:20px; padding:5px; width:80px; text-align:center; }
+    :root{--bg:#071028;--card:#0b1224;--muted:#94a3b8;--text:#e5e7eb;--accent:#22c55e;--warn:#f59e0b;--danger:#ef4444}
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(180deg,#061426,#08102a);font-family:Inter,system-ui,Segoe UI,Roboto;color:var(--text);display:flex;align-items:center;justify-content:center;padding:18px;min-height:100vh}
+    .app{width:min(1100px,98vw);background:rgba(2,6,23,0.6);border-radius:12px;border:1px solid #122033;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.6)}
+    header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #10243a}
+    header h1{margin:0;font-size:18px}
+    main{display:grid;grid-template-columns:360px 1fr;gap:16px;padding:18px}
+    .card{background:linear-gradient(180deg, rgba(4,8,20,0.6), rgba(6,10,24,0.4)); border:1px solid #122033; border-radius:10px; padding:12px}
+    label{display:block;color:var(--muted);margin-bottom:6px}
+    input[type="text"]{width:100%;padding:10px;border-radius:8px;border:1px solid #193047;background:#041224;color:var(--text)}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;border:1px solid #143447;background:#072b3f;color:var(--text);cursor:pointer;font-weight:600}
+    .btn.primary{background:linear-gradient(180deg,#2563eb,#0ea5e9);color:white;border:none}
+    .btn.success{background:linear-gradient(180deg,#16a34a,#22c55e);color:white;border:none}
+    .btn.warn{background:linear-gradient(180deg,#f59e0b,#d97706);color:black;border:none}
+    .btn.danger{background:linear-gradient(180deg,#ef4444,#dc2626);color:white;border:none}
+    .muted{color:var(--muted);font-size:13px}
+    .playerList{max-height:340px;overflow:auto;margin-top:8px;border-radius:8px;border:1px dashed #0f3b58;padding:6px}
+    .row{display:flex;align-items:center;justify-content:space-between;padding:8px;border-bottom:1px dashed #072235}
+    .row:last-child{border-bottom:none}
+    .center{text-align:center}
+    .buzzer{width:100%;padding:30px;border-radius:16px;font-size:28px;font-weight:900;cursor:pointer;background:linear-gradient(180deg,#ef4444,#991b1b);box-shadow:0 18px 0 #7f1d1d;color:white;border:none}
+    .buzzer.disabled{filter:grayscale(.7) brightness(.7);cursor:not-allowed}
+    .hidden{display:none!important}
+    .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;background:#07142a;border:1px solid #132a3f;padding:10px 14px;border-radius:10px}
+    #popup{display:flex;align-items:center;justify-content:center;position:fixed;inset:0;background:rgba(0,0,0,0.7)}
+    #popup .box{background:#041224;padding:18px;border-radius:12px;border:1px solid #0f3b58;width:min(460px,92vw);text-align:center}
+    .small{font-size:13px;padding:6px 8px;border-radius:8px}
   </style>
 </head>
 <body>
-  <h1>🎯 Game Bấm Chuông</h1>
+  <div class="app">
+    <header>
+      <h1>⚡ Ai Nhanh Hơn — Bấm Chuông (GV bấm START)</h1>
+      <div id="roomTag" class="muted">—</div>
+    </header>
 
-  <div id="roleSelect">
-    <button onclick="setRole('teacher')">Tôi là Giáo viên</button>
-    <button onclick="setRole('student')">Tôi là Học sinh</button>
+    <main>
+      <!-- left: login / host controls -->
+      <div>
+        <div class="card" id="loginCard">
+          <label for="nameInput">Tên (Nhập tên, hệ thống sẽ thêm số nếu trùng)</label>
+          <input id="nameInput" type="text" placeholder="Ví dụ: Minh" />
+          <div style="margin-top:10px;display:flex;gap:8px">
+            <button id="btnCreate" class="btn success">TẠO PHÒNG (GV)</button>
+            <button id="btnJoin" class="btn primary">VÀO PHÒNG (HS)</button>
+          </div>
+          <p class="muted" style="margin-top:10px">• GV phải bấm <strong>BẮT ĐẦU</strong> để mở lượt. • Mỗi lượt có 1 phép toán chung.</p>
+        </div>
+
+        <div class="card hidden" id="hostCard">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div><strong>Mã phòng:</strong> <span id="hostCode">—</span></div>
+              <div class="muted" id="hostStatus">Vòng: —</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <button id="btnStart" class="btn primary">BẮT ĐẦU</button>
+              <button id="btnReset" class="btn">RESET</button>
+            </div>
+          </div>
+
+          <hr style="margin:10px 0;border:none;border-top:1px solid #0e2233" />
+
+          <div style="display:flex;gap:8px;align-items:center">
+            <div><strong>Người đang trả lời:</strong> <span id="currentAnswerer">—</span></div>
+            <div style="margin-left:auto;display:flex;gap:8px">
+              <button id="btnCorrect" class="btn success">✅ ĐÚNG</button>
+              <button id="btnWrong" class="btn warn">❌ SAI (mini-round)</button>
+              <button id="btnEnd" class="btn danger">⛔ KẾT THÚC CÂU</button>
+            </div>
+          </div>
+
+          <hr style="margin:10px 0;border:none;border-top:1px solid #0e2233" />
+
+          <div><strong>Danh sách học sinh:</strong>
+            <div id="playerList" class="playerList"></div>
+          </div>
+
+          <div style="margin-top:10px">
+            <strong>Lịch sử:</strong>
+            <div id="history" class="playerList"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- right: player screen -->
+      <div>
+        <div class="card" id="playerCard" style="min-height:420px;">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div class="muted">Bạn là:</div>
+              <div id="meName" style="font-weight:800">—</div>
+            </div>
+            <div class="center">
+              <div class="muted">Trạng thái vòng</div>
+              <div id="stateTag" style="font-weight:900">—</div>
+            </div>
+            <div class="center">
+              <div class="muted">Người thắng (nếu có)</div>
+              <div id="winnerName" style="font-weight:900">—</div>
+            </div>
+          </div>
+
+          <hr style="margin:12px 0;border:none;border-top:1px solid #0e2233" />
+
+          <div id="playerArea" class="center" style="gap:12px">
+            <div id="readyArea">
+              <button id="btnBuzzer" class="buzzer">CHUÔNG</button>
+              <div class="muted">Chờ GV bấm BẮT ĐẦU để mở lượt.</div>
+            </div>
+
+            <div id="answeringArea" class="hidden">
+              <div style="font-weight:800">⏳ Người đang trả lời: <span id="answeringWho">—</span></div>
+              <div class="muted">GV sẽ bấm ĐÚNG / SAI</div>
+            </div>
+
+            <div id="finalArea" class="hidden">
+              <div id="finalText" style="font-size:20px;font-weight:900"></div>
+              <div class="muted">Chờ GV bấm RESET để câu mới.</div>
+            </div>
+          </div>
+
+          <div style="margin-top:12px;display:flex;gap:8px;justify-content:center">
+            <button id="btnLeave" class="btn small">Rời phòng</button>
+            <button id="btnRefresh" class="btn small">Làm mới</button>
+          </div>
+        </div>
+
+        <div id="toast" class="toast hidden"></div>
+      </div>
+    </main>
   </div>
 
-  <div id="teacherPanel" style="display:none;">
-    <h2>👩‍🏫 Giáo viên điều khiển</h2>
-    <button onclick="startRound()">BẮT ĐẦU</button>
-    <button onclick="markCorrect()">✅ Đúng</button>
-    <button onclick="markWrong()">❌ Sai</button>
-    <button onclick="resetGame()">🔄 RESET</button>
-    <h3 id="status"></h3>
-  </div>
-
-  <div id="studentPanel" style="display:none;">
-    <h2>👨‍🎓 Học sinh</h2>
-    <input id="playerName" placeholder="Nhập tên của bạn">
-    <button onclick="joinGame()">Tham gia</button>
-    <div id="studentArea"></div>
-  </div>
-
-  <!-- Popup phép toán -->
-  <div id="popup">
-    <div id="popupContent">
-      <h2 id="mathQuestion"></h2>
-      <input type="number" id="answerInput">
-      <button onclick="submitAnswer()">Xác nhận</button>
+  <!-- popup question (hidden) -->
+  <div id="popup" class="hidden" aria-hidden="true">
+    <div class="box">
+      <h2 id="questionText" style="font-size:28px;margin:0 0 12px 0">2 + 3 = ?</h2>
+      <input id="answerInput" type="number" style="font-size:20px;padding:8px;width:120px;text-align:center;border-radius:8px;border:1px solid #0f3b58;background:#021826;color:var(--text)" />
+      <div style="margin-top:12px;display:flex;gap:8px;justify-content:center">
+        <button id="btnSubmitAnswer" class="btn success">XÁC NHẬN</button>
+        <button id="btnCancelAnswer" class="btn">HỦY</button>
+      </div>
     </div>
   </div>
 
+  <!-- Firebase compat SDK (dễ copy) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
   <script>
-    // ==== Firebase config ====
+    // ====== CẤU HÌNH FIREBASE: thay bằng cấu hình của bạn ======
     const firebaseConfig = {
       apiKey: "YOUR_API_KEY",
       authDomain: "YOUR_PROJECT.firebaseapp.com",
@@ -63,164 +168,302 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    const roomId = "demo-room"; // fix cứng 1 phòng
+    // ====== HẰNG SỐ ======
+    const ROOM = 'room-demo-1'; // bạn có thể thay thành mã phòng động nếu muốn
+    const stateRef = db.ref(`rooms/${ROOM}/state`);
+    const playersRef = db.ref(`rooms/${ROOM}/players`);
+    const historyRef = db.ref(`rooms/${ROOM}/history`);
 
-    let role = null;
-    let playerId = null;
-    let playerName = null;
-    let currentQuestion = null;
+    // ====== UI helpers ======
+    const $ = id => document.getElementById(id);
+    const toast = (t) => {
+      const el = $('toast'); el.textContent = t; el.classList.remove('hidden'); clearTimeout(toast._tm);
+      toast._tm = setTimeout(()=> el.classList.add('hidden'), 2200);
+    };
 
-    function setRole(r) {
-      role = r;
-      document.getElementById("roleSelect").style.display = "none";
-      if (r === "teacher") {
-        document.getElementById("teacherPanel").style.display = "block";
-        listenState();
-      } else {
-        document.getElementById("studentPanel").style.display = "block";
-        listenState();
-      }
-    }
+    // ====== Local store ======
+    const local = { me: null, room: ROOM, isHost: false };
 
-    // ==== Giáo viên ====
-    function startRound() {
-      const a = Math.floor(Math.random()*6);
-      let b;
-      do { b = Math.floor(Math.random()*6); } while(b === a);
-      firebase.database().ref("rooms/"+roomId+"/state").set({
-        canBuzz: true,
-        winnerId: null,
-        winnerName: null,
-        currentPlayer: null,
-        question: {a:a,b:b},
-        excluded: {}
+    // ====== Tạo phòng (GV) ======
+    $('btnCreate').addEventListener('click', async () => {
+      let name = ($('nameInput').value || 'Giáo viên').trim();
+      const id = crypto.randomUUID();
+      // init room structure
+      await db.ref(`rooms/${ROOM}`).set({
+        createdAt: Date.now(),
+        hostId: id,
+        hostName: name,
+        state: {
+          round: 0,
+          canBuzz: false,
+          question: null,
+          winnerId: null,
+          winnerName: null,
+          currentPlayer: null,
+          excluded: {}
+        },
+        players: {}
       });
-    }
+      // add host as player
+      name = await assignUniqueName(name);
+      await db.ref(`rooms/${ROOM}/players/${id}`).set({ id, name, online: true });
+      local.me = { id, name }; local.isHost = true; saveLocal();
+      $('hostCode').textContent = ROOM;
+      $('roomTag').textContent = ROOM;
+      showHostUI();
+      bindHost();
+      bindStateListener();
+      toast('Đã tạo phòng (GV)');
+    });
 
-    function markCorrect() {
-      firebase.database().ref("rooms/"+roomId+"/state/winnerId").set(window.currentPlayer);
-      firebase.database().ref("rooms/"+roomId+"/state/winnerName").set(window.currentPlayerName);
-    }
+    // ====== Vao phong (HS) ======
+    $('btnJoin').addEventListener('click', async () => {
+      let name = ($('nameInput').value || 'Học sinh').trim();
+      const roomSnap = await db.ref(`rooms/${ROOM}`).get();
+      if (!roomSnap.exists()) { toast('Phòng chưa tồn tại — GV cần tạo trước'); return; }
+      name = await assignUniqueName(name);
+      const id = crypto.randomUUID();
+      await db.ref(`rooms/${ROOM}/players/${id}`).set({ id, name, online: true });
+      local.me = { id, name }; local.isHost = false; saveLocal();
+      showPlayerUI();
+      bindPlayer();
+      bindStateListener();
+      toast(`Vào phòng với tên ${name}`);
+    });
 
-    function markWrong() {
-      const stateRef = firebase.database().ref("rooms/"+roomId+"/state");
-      stateRef.once("value").then(snap=>{
-        const st = snap.val();
-        if (!st) return;
-        // thêm player hiện tại vào danh sách bị loại
-        firebase.database().ref("rooms/"+roomId+"/state/excluded/"+window.currentPlayer).set(true);
-        // sinh phép toán mới
+    // ====== Name uniqueness (add numeric suffix if needed) ======
+    async function assignUniqueName(desired) {
+      const snap = await db.ref(`rooms/${ROOM}/players`).get();
+      const list = snap.exists() ? snap.val() : {};
+      let maxIndex = 0;
+      Object.values(list).forEach(p => {
+        if (!p || !p.name) return;
+        if (p.name === desired) maxIndex = Math.max(maxIndex, 1);
+        const m = (p.name + '').match(new RegExp(`^${escapeRegExp(desired)} (\\d+)$`));
+        if (m) maxIndex = Math.max(maxIndex, Number(m[1]));
+      });
+      if (maxIndex === 0) return desired;
+      return `${desired} ${maxIndex + 1}`;
+    }
+    function escapeRegExp(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+    // ====== Save/load local ======
+    function saveLocal(){ localStorage.setItem('buzzer_local', JSON.stringify(local)); }
+    function loadLocal(){ try { const d=JSON.parse(localStorage.getItem('buzzer_local')||'{}'); if (d.me) local.me=d.me; if (d.isHost) local.isHost=d.isHost; } catch{} }
+    loadLocal();
+    if (local.me && local.isHost) { $('hostCode').textContent = ROOM; $('roomTag').textContent = ROOM; showHostUI(); bindHost(); bindStateListener(); }
+    if (local.me && !local.isHost) { showPlayerUI(); bindPlayer(); bindStateListener(); }
+
+    // ====== UI show/hide ======
+    function showHostUI(){ $('loginCard').classList.add('hidden'); $('hostCard').classList.remove('hidden'); $('playerCard').classList.remove('hidden'); $('meName').textContent = local.me?.name || '—'; }
+    function showPlayerUI(){ $('loginCard').classList.add('hidden'); $('hostCard').classList.add('hidden'); $('playerCard').classList.remove('hidden'); $('meName').textContent = local.me?.name || '—'; }
+
+    // ====== Host controls ======
+    function bindHost(){
+      $('btnStart').onclick = async () => {
+        // increment round, generate question, clear excluded, open buzz
         const a = Math.floor(Math.random()*6);
-        let b;
-        do { b = Math.floor(Math.random()*6); } while(b === a);
-        firebase.database().ref("rooms/"+roomId+"/state/question").set({a:a,b:b});
-        firebase.database().ref("rooms/"+roomId+"/state/canBuzz").set(true);
-        firebase.database().ref("rooms/"+roomId+"/state/currentPlayer").set(null);
-      });
-    }
-
-    function resetGame() {
-      firebase.database().ref("rooms/"+roomId+"/state").set({
-        canBuzz: false,
-        winnerId: null,
-        winnerName: null,
-        currentPlayer: null,
-        question: null,
-        excluded: {}
-      });
-    }
-
-    // ==== Học sinh ====
-    function joinGame() {
-      playerName = document.getElementById("playerName").value.trim();
-      if (!playerName) return alert("Nhập tên!");
-      playerId = "p"+Date.now();
-      firebase.database().ref("rooms/"+roomId+"/players/"+playerId).set({name: playerName});
-      document.getElementById("studentArea").innerHTML = `
-        <button id="buzzBtn" class="buzz" onclick="buzz()">CHUÔNG</button>
-        <div id="info"></div>
-      `;
-    }
-
-    function buzz() {
-      const stateRef = firebase.database().ref("rooms/"+roomId+"/state");
-      stateRef.once("value").then(snap=>{
-        const st = snap.val();
-        if (!st || !st.canBuzz) return;
-        if (st.excluded && st.excluded[playerId]) return; // bị loại rồi
-        currentQuestion = st.question;
-        document.getElementById("mathQuestion").innerText = `${currentQuestion.a} + ${currentQuestion.b} = ?`;
-        document.getElementById("popup").style.display = "flex";
-        document.getElementById("answerInput").value = "";
-        document.getElementById("answerInput").focus();
-      });
-    }
-
-    function submitAnswer() {
-      const ans = parseInt(document.getElementById("answerInput").value);
-      if (ans === currentQuestion.a + currentQuestion.b) {
-        // đúng → xin quyền
-        firebase.database().ref("rooms/"+roomId+"/state").transaction(st=>{
-          if (st && st.canBuzz && !st.currentPlayer) {
-            st.currentPlayer = playerId;
-            st.canBuzz = false;
-          }
-          return st;
+        let b; do { b = Math.floor(Math.random()*6); } while (b === a);
+        await stateRef.transaction(s => {
+          if (!s) s = {};
+          s.round = (s.round || 0) + 1;
+          s.canBuzz = true;
+          s.question = { a, b };
+          s.winnerId = null;
+          s.winnerName = null;
+          s.currentPlayer = null;
+          s.excluded = {}; // clear exclusions for new round
+          return s;
         });
-      }
-      document.getElementById("popup").style.display = "none";
+        toast(`Bắt đầu vòng ${ (await stateRef.child('round').get()).val() || '?' } — Câu: ${a} + ${b}`);
+      };
+
+      $('btnReset').onclick = async () => {
+        if (!confirm('RESET: kết thúc câu, xóa kết quả hiện tại?')) return;
+        await stateRef.update({ canBuzz: false, question: null, winnerId: null, winnerName: null, currentPlayer: null, excluded: {} });
+        toast('Đã RESET — chuẩn bị cho câu mới (GV bấm BẮT ĐẦU)');
+      };
+
+      $('btnCorrect').onclick = async () => {
+        const sSnap = await stateRef.get();
+        const s = sSnap.val() || {};
+        if (!s.winnerId) { toast('Chưa có người thắng để xác nhận'); return; }
+        // push history
+        await historyRef.push({ round: s.round || 0, winnerId: s.winnerId, winnerName: s.winnerName, at: Date.now() });
+        // lock until GV reset
+        await stateRef.update({ canBuzz: false });
+        toast(`Xác nhận ĐÚNG: ${s.winnerName}`);
+      };
+
+      $('btnWrong').onclick = async () => {
+        // nếu không có winner, but maybe current player - get that
+        const sSnap = await stateRef.get();
+        const s = sSnap.val() || {};
+        const loserId = s.winnerId || s.currentPlayer;
+        if (!loserId) { toast('Chưa có người để loại'); return; }
+        // mark excluded for this round
+        const upd = {};
+        upd[`players/${loserId}/eliminated_${s.round || 0}`] = true;
+        // mark excluded in state too
+        await db.ref(`rooms/${ROOM}/state/excluded/${loserId}`).set(true);
+        // clear winner/currentPlayer and generate new question and open canBuzz true
+        const a = Math.floor(Math.random()*6);
+        let b; do { b = Math.floor(Math.random()*6); } while (b === a);
+        await stateRef.update({ winnerId: null, winnerName: null, currentPlayer: null, question: { a,b }, canBuzz: true });
+        toast(`Đã loại người chơi. Mở mini-round mới (Câu: ${a} + ${b})`);
+      };
+
+      $('btnEnd').onclick = async () => {
+        if (!confirm('Kết thúc câu này không chọn người thắng?')) return;
+        await stateRef.update({ canBuzz: false, question: null, winnerId: null, winnerName: null, currentPlayer: null });
+        toast('Câu kết thúc bởi GV.');
+      };
     }
 
-    // ==== Lắng nghe thay đổi trạng thái ====
-    function listenState() {
-      firebase.database().ref("rooms/"+roomId+"/state").on("value", snap=>{
-        const st = snap.val();
-        if (!st) return;
-        // Giáo viên
-        if (role==="teacher") {
-          let status="";
-          if (st.winnerName) {
-            status=`🏆 Người thắng: ${st.winnerName}`;
-          } else if (st.currentPlayer) {
-            status=`⏳ Đang chờ trả lời: ${st.currentPlayer}`;
-            window.currentPlayer = st.currentPlayer;
-            firebase.database().ref("rooms/"+roomId+"/players/"+st.currentPlayer).once("value").then(p=>{
-              if (p.val()) {
-                window.currentPlayerName=p.val().name;
-                document.getElementById("status").innerText=`⏳ Đang chờ: ${p.val().name}`;
-              }
-            });
-          } else {
-            status="Đang chờ bấm...";
-          }
-          document.getElementById("status").innerText=status;
+    // ====== Player side ======
+    function bindPlayer(){
+      // buzzer click: if canBuzz true and not excluded, open popup for question for this player
+      $('btnBuzzer').onclick = async () => {
+        if (!local.me) { toast('Bạn chưa vào phòng'); return; }
+        const sSnap = await stateRef.get();
+        const s = sSnap.val();
+        if (!s || !s.canBuzz) { toast('Chưa mở lượt — chờ GV bấm BẮT ĐẦU'); return; }
+        // check excluded
+        if (s.excluded && s.excluded[local.me.id]) { toast('Bạn đã bị loại vòng này'); return; }
+        // open popup with question from state
+        const q = s.question;
+        if (!q) { toast('Câu chưa sẵn sàng'); return; }
+        $('questionText').textContent = `${q.a} + ${q.b} = ?`;
+        $('answerInput').value = '';
+        $('popup').classList.remove('hidden'); $('popup').setAttribute('aria-hidden','false');
+        // store question to verify on submit
+        window._activeQuestion = q;
+      };
+
+      $('btnCancelAnswer').onclick = () => { $('popup').classList.add('hidden'); $('popup').setAttribute('aria-hidden','true'); window._activeQuestion = null; };
+
+      $('btnSubmitAnswer').onclick = async () => {
+        const q = window._activeQuestion;
+        if (!q) return;
+        const val = parseInt($('answerInput').value);
+        $('popup').classList.add('hidden'); $('popup').setAttribute('aria-hidden','true'); window._activeQuestion = null;
+        if (Number.isNaN(val)) { toast('Nhập đáp án hợp lệ'); return; }
+        if (val !== (q.a + q.b)) {
+          // sai → nothing else; teacher may decide; we just show feedback
+          toast('Sai đáp án — bạn không được quyền lần này');
+          // Optionally mark elimination? Better left to GV via ❌ button
+          return;
         }
-        // Học sinh
-        if (role==="student") {
-          const info=document.getElementById("info");
-          if (!info) return;
-          if (st.winnerName) {
-            info.innerText=`🏆 Người thắng: ${st.winnerName}`;
-            document.getElementById("buzzBtn").classList.add("disabled");
-            document.getElementById("buzzBtn").disabled=true;
-          } else if (st.currentPlayer) {
-            firebase.database().ref("rooms/"+roomId+"/players/"+st.currentPlayer).once("value").then(p=>{
-              if (p.val()) info.innerText=`⏳ ${p.val().name} đang trả lời...`;
-            });
-            document.getElementById("buzzBtn").classList.add("disabled");
-            document.getElementById("buzzBtn").disabled=true;
-          } else if (st.canBuzz && !(st.excluded && st.excluded[playerId])) {
-            info.innerText="Bạn có thể bấm!";
-            document.getElementById("buzzBtn").classList.remove("disabled");
-            document.getElementById("buzzBtn").disabled=false;
+        // đúng → cố gắng set winner via transaction: chỉ 1 người đầu tiên được ghi winner
+        try {
+          await stateRef.transaction(s => {
+            if (!s) return s;
+            // if already has winner -> do nothing
+            if (s.winnerId) return s;
+            // also if this player was excluded (race) -> do nothing
+            if (s.excluded && s.excluded[local.me.id]) return s;
+            // set winner
+            s.winnerId = local.me.id;
+            s.winnerName = local.me.name;
+            s.canBuzz = false; // lock further buzz until GV handles (or until mini-round)
+            return s;
+          }, (error, committed, snapshot) => {
+            if (error) {
+              console.error('Transaction error', error);
+              toast('Lỗi khi xác nhận câu trả lời');
+            } else if (!committed) {
+              toast('Đã có người khác trả lời đúng trước bạn');
+            } else {
+              toast('Bạn trả lời đúng — đã ghi nhận (chờ GV xác nhận)');
+            }
+          }, false);
+        } catch(e) {
+          console.error(e); toast('Lỗi khi submit đáp án');
+        }
+      };
+
+      // leave / refresh
+      $('btnLeave').onclick = async () => {
+        if (!local.me) return;
+        await db.ref(`rooms/${ROOM}/players/${local.me.id}/online`).set(false);
+        local.me = null; local.isHost = false; saveLocal();
+        location.reload();
+      };
+      $('btnRefresh').onclick = () => location.reload();
+    }
+
+    // ====== State listener (both GV & HS) ======
+    function bindStateListener(){
+      stateRef.on('value', async snap => {
+        const s = snap.val() || {};
+        // update basic UI
+        $('hostStatus').textContent = `Vòng: ${s.round || 0} — ${s.canBuzz ? 'Đang mở' : (s.winnerId ? 'Đã có người thắng' : 'Đang khoá')}`;
+        $('stateTag').textContent = s.canBuzz ? 'Sẵn sàng bấm' : (s.winnerId ? 'Đã có người thắng' : 'Đang khoá');
+        $('winnerName').textContent = s.winnerName || '—';
+
+        // host view current answerer (from winnerId concept)
+        $('currentAnswerer').textContent = s.winnerId ? (s.winnerName || s.winnerId) : '—';
+
+        // player view
+        if (local.me && !local.isHost) {
+          // if winner exists -> show final
+          if (s.winnerId) {
+            $('finalArea').classList.remove('hidden'); $('finalText').textContent = `🏆 ${s.winnerName || '—'}`;
+            $('readyArea').classList.add('hidden'); $('answeringArea').classList.add('hidden');
+            $('btnBuzzer').classList.add('disabled'); $('btnBuzzer').disabled = true;
+          } else if (s.currentPlayer) {
+            // show who is answering (if teacher allows currentPlayer via winnerId earlier we used winner concept; here currentPlayer not used)
+            $('answeringArea').classList.remove('hidden'); $('answeringWho').textContent = s.currentPlayerName || s.currentPlayer || '—';
+            $('readyArea').classList.add('hidden');
+            $('btnBuzzer').classList.add('disabled'); $('btnBuzzer').disabled = true;
+          } else if (s.canBuzz && !(s.excluded && s.excluded[local.me.id])) {
+            $('readyArea').classList.remove('hidden'); $('btnBuzzer').classList.remove('disabled'); $('btnBuzzer').disabled = false;
+            $('answeringArea').classList.add('hidden'); $('finalArea').classList.add('hidden');
           } else {
-            info.innerText="Chờ vòng mới...";
-            document.getElementById("buzzBtn").classList.add("disabled");
-            document.getElementById("buzzBtn").disabled=true;
+            $('readyArea').classList.remove('hidden'); $('answeringArea').classList.add('hidden'); $('finalArea').classList.add('hidden');
+            $('btnBuzzer').classList.add('disabled'); $('btnBuzzer').disabled = true;
           }
         }
+
+        // update player list + show excluded marker
+        const playersSnap = await playersRef.get();
+        const players = playersSnap.exists() ? playersSnap.val() : {};
+        renderPlayerList(players, s.excluded || {});
+        // update history view
+        const hSnap = await historyRef.get();
+        const hist = hSnap.exists() ? hSnap.val() : {};
+        renderHistory(hist);
       });
     }
+
+    function renderPlayerList(players, excludedMap){
+      const box = $('playerList'); box.innerHTML = '';
+      Object.values(players || {}).forEach(p => {
+        const r = document.createElement('div'); r.className='row';
+        const left = document.createElement('div'); left.innerHTML = `<div style="font-weight:800">${p.name}</div><div class="muted" style="font-size:12px">${p.online ? 'online' : 'offline'}</div>`;
+        const right = document.createElement('div'); right.innerHTML = `${excludedMap && excludedMap[p.id] ? '<span style="color:var(--warn)">Bị loại</span>' : '<span class="muted">'+p.id.slice(-4)+'</span>'}`;
+        r.appendChild(left); r.appendChild(right); box.appendChild(r);
+      });
+    }
+    function renderHistory(hist){
+      const box = $('history'); box.innerHTML = '';
+      Object.values(hist || {}).reverse().slice(0,30).forEach(h => {
+        const r = document.createElement('div'); r.className='row';
+        r.innerHTML = `<div>${h.winnerName || '—'}</div><div class="muted" style="font-size:12px">${new Date(h.at).toLocaleTimeString('vi-VN')}</div>`;
+        box.appendChild(r);
+      });
+    }
+
+    // ====== Misc: restore session UI if local info present ======
+    window.addEventListener('load', async () => {
+      if (local.me) {
+        $('meName').textContent = local.me.name;
+        if (local.isHost) { showHostUI(); bindHost(); bindStateListener(); }
+        else { showPlayerUI(); bindPlayer(); bindStateListener(); }
+      } else {
+        // default view: login shown
+      }
+    });
   </script>
 </body>
 </html>
