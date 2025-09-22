@@ -2,208 +2,158 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>Game Bấm Chuông</title>
+  <title>Trò chơi bấm chuông</title>
   <style>
     body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
-    .hidden { display: none; }
-    .btn { padding: 10px 20px; margin: 5px; font-size: 16px; cursor: pointer; }
-    .success { background: #4CAF50; color: white; }
-    .danger { background: #f44336; color: white; }
-    .warning { background: #ff9800; color: white; }
-    .info { background: #2196F3; color: white; }
-    #toast {
-      visibility: hidden; min-width: 200px; margin-left: -100px;
-      background-color: #333; color: #fff; text-align: center; border-radius: 5px;
-      padding: 10px; position: fixed; z-index: 1; left: 50%; bottom: 30px;
+    #controls { margin: 20px; }
+    button { padding: 10px 20px; margin: 10px; font-size: 16px; }
+    #questionPopup {
+      display: none;
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: white; border: 2px solid black; padding: 20px;
     }
-    #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
-    @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
-    @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
   </style>
 </head>
 <body>
   <h1>Game Bấm Chuông</h1>
 
-  <!-- Trang Home -->
-  <div id="homePage">
-    <input id="nameInput" placeholder="Tên của bạn">
-    <button class="btn success" id="btnCreate">Tạo phòng (Giáo viên)</button>
-    <br><br>
-    <input id="codeInput" placeholder="Mã phòng">
-    <button class="btn info" id="btnJoin">Vào phòng (Học sinh)</button>
+  <div id="controls">
+    <input type="text" id="roomId" placeholder="Mã phòng">
+    <input type="text" id="playerName" placeholder="Tên bạn">
+    <br>
+    <button id="createRoom">Tạo phòng</button>
+    <button id="joinRoom">Vào phòng</button>
+    <button id="startGame">Bắt đầu</button>
   </div>
 
-  <!-- Trang Host -->
-  <div id="hostPage" class="hidden">
-    <h2>Phòng <span id="roomCode"></span></h2>
-    <div class="grid2">
-      <button class="btn success" id="btnStart">RESET VÒNG</button>
-      <button class="btn danger" id="btnExit">EXIT (Giải tán phòng)</button>
-    </div>
-    <h3>Danh sách người chơi</h3>
-    <ul id="playerList"></ul>
-    <h3>Kết quả vòng</h3>
-    <p>Người thắng: <span id="roundWinner">—</span></p>
-    <p id="roundInfo"></p>
+  <h2 id="status">Chưa vào phòng</h2>
+  <button id="buzzBtn" disabled>🔔 Bấm chuông</button>
+
+  <div id="questionPopup">
+    <p id="questionText"></p>
+    <input type="number" id="answerInput">
+    <button id="submitAnswer">Trả lời</button>
   </div>
 
-  <!-- Trang Player -->
-  <div id="playerPage" class="hidden">
-    <h2>Phòng <span id="roomCode2"></span></h2>
-    <h3>Xin chào <span id="playerName"></span></h3>
-    <button class="btn success" id="btnBuzzer">BẤM CHUÔNG</button>
-    <p id="statusText">Đang chờ giáo viên bắt đầu…</p>
-    <p>Người thắng vòng này: <span id="winnerText">—</span></p>
-  </div>
-
-  <div id="toast"></div>
-
-  <!-- Firebase + App -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
-    import { getDatabase, ref, set, get, onValue, push, runTransaction, remove } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
+    // Import Firebase
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+    import { getDatabase, ref, set, get, child, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-database.js";
 
+    // Config Firebase của bạn
     const firebaseConfig = {
       apiKey: "AIzaSyAAdt8pjiOTBCFuDEv_1BWZlPQYtJBWdZY",
       authDomain: "appchuong-c3fb8.firebaseapp.com",
       databaseURL: "https://appchuong-c3fb8-default-rtdb.firebaseio.com",
       projectId: "appchuong-c3fb8",
-      storageBucket: "appchuong-c3fb8.firebasestorage.app",
+      storageBucket: "appchuong-c3fb8.appspot.com",
       messagingSenderId: "794046720932",
-      appId: "1:794046720932:web:8fe3166394b7e366dbaf31",
-      measurementId: "G-1W7BYFTQNX"
+      appId: "1:794046720932:web:8fe3166394b7e366dbaf31"
     };
 
+    // Khởi tạo
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // tiện ích
-    const $ = id => document.getElementById(id);
-    const toast = (msg) => {
-      const x = $("toast");
-      x.textContent = msg;
-      x.className = "show";
-      setTimeout(() => { x.className = x.className.replace("show", ""); }, 3000);
-    };
-
-    let store = { me: null };
-
-    function switchPage(id) {
-      ["homePage", "hostPage", "playerPage"].forEach(p => $(p).classList.add("hidden"));
-      $(id).classList.remove("hidden");
-    }
-
-    function randomCode() {
-      return Math.floor(1000 + Math.random() * 9000).toString();
-    }
+    let currentRoom = "";
+    let playerName = "";
+    let canBuzz = false;
+    let correctAnswer = null;
 
     // Tạo phòng
-    $("btnCreate").onclick = async () => {
-      const name = $("nameInput").value.trim();
-      if (!name) return toast("Nhập tên!");
-      const code = randomCode();
-      store.me = { id: Date.now().toString(), name, isHost: true };
-      await set(ref(db, "rooms/" + code), {
-        hostId: store.me.id,
-        state: { round: 0, canBuzz: false, lastWinner: null },
-        players: { [store.me.id]: { name } }
+    document.getElementById("createRoom").onclick = async () => {
+      const room = document.getElementById("roomId").value;
+      if (!room) return alert("Nhập mã phòng");
+      await set(ref(db, "rooms/" + room), {
+        started: false,
+        winner: "",
+        question: null
       });
-      $("roomCode").textContent = code;
-      switchPage("hostPage");
-      bindHost(code);
+      currentRoom = room;
+      playerName = document.getElementById("playerName").value;
+      document.getElementById("status").innerText = "Đã tạo phòng " + room;
     };
 
     // Vào phòng
-    $("btnJoin").onclick = async () => {
-      const name = $("nameInput").value.trim();
-      const code = $("codeInput").value.trim();
-      if (!name || !code) return toast("Nhập tên và mã phòng!");
-      const snap = await get(ref(db, "rooms/" + code));
-      if (!snap.exists()) return toast("Phòng không tồn tại");
-      store.me = { id: Date.now().toString(), name, isHost: false };
-      await set(ref(db, "rooms/" + code + "/players/" + store.me.id), { name });
-      $("roomCode2").textContent = code;
-      $("playerName").textContent = name;
-      switchPage("playerPage");
-      bindPlayer(code);
+    document.getElementById("joinRoom").onclick = async () => {
+      const room = document.getElementById("roomId").value;
+      if (!room) return alert("Nhập mã phòng");
+      currentRoom = room;
+      playerName = document.getElementById("playerName").value;
+      document.getElementById("status").innerText = "Đã vào phòng " + room;
+      // Theo dõi trạng thái phòng
+      onValue(ref(db, "rooms/" + room), snapshot => {
+        const data = snapshot.val();
+        if (!data) return;
+        if (data.started) {
+          document.getElementById("buzzBtn").disabled = false;
+          canBuzz = true;
+        } else {
+          document.getElementById("buzzBtn").disabled = true;
+          canBuzz = false;
+        }
+        if (data.question) {
+          correctAnswer = data.question.ans;
+          showQuestion(data.question.text);
+        }
+        if (data.winner) {
+          document.getElementById("status").innerText = "Người bấm trước: " + data.winner;
+        }
+      });
     };
 
-    // Bắt đầu vòng mới
-    async function startRound(code) {
-      await runTransaction(ref(db, `rooms/${code}/state`), (s) => {
-        if (!s) s = {};
-        s.round = (s.round || 0) + 1;
-        s.canBuzz = true;
-        s.lastWinner = null;
-        s.lastAt = null;
-        return s;
+    // Bắt đầu (tạo câu hỏi mới)
+    document.getElementById("startGame").onclick = async () => {
+      if (!currentRoom) return alert("Chưa có phòng");
+      // Tạo phép toán ngẫu nhiên
+      let a, b;
+      do {
+        a = Math.floor(Math.random() * 6);
+        b = Math.floor(Math.random() * 6);
+      } while (a === b);
+      const text = `${a} + ${b} = ?`;
+      const ans = a + b;
+      await update(ref(db, "rooms/" + currentRoom), {
+        started: true,
+        winner: "",
+        question: { text, ans }
       });
-      $("roundWinner").textContent = "—";
-      $("roundInfo").textContent = "Vòng mới!";
-      $("statusText").textContent = "Đang chờ bấm…";
+    };
+
+    // Bấm chuông
+    document.getElementById("buzzBtn").onclick = async () => {
+      if (!canBuzz) return;
+      canBuzz = false;
+      document.getElementById("buzzBtn").disabled = true;
+      // Delay 3 giây trước khi chấp nhận
+      setTimeout(async () => {
+        // Ghi nhận người bấm
+        const roomRef = ref(db, "rooms/" + currentRoom);
+        const snap = await get(roomRef);
+        const data = snap.val();
+        if (data && !data.winner) {
+          await update(roomRef, { winner: playerName });
+        }
+      }, 3000);
+    };
+
+    // Hiển thị popup câu hỏi
+    function showQuestion(text) {
+      document.getElementById("questionText").innerText = text;
+      document.getElementById("questionPopup").style.display = "block";
     }
 
-    function bindHost(code) {
-      $("btnStart").onclick = async () => {
-        await startRound(code);
-        toast("Đã reset vòng mới");
-      };
-      $("btnExit").onclick = async () => {
-        await remove(ref(db, "rooms/" + code));
-        switchPage("homePage");
-      };
-      onValue(ref(db, "rooms/" + code + "/players"), (snap) => {
-        $("playerList").innerHTML = "";
-        snap.forEach(ch => {
-          const li = document.createElement("li");
-          li.textContent = ch.val().name;
-          $("playerList").appendChild(li);
-        });
-      });
-      onValue(ref(db, "rooms/" + code + "/state"), (snap) => {
-        const st = snap.val();
-        if (!st) return;
-        if (st.lastWinner) {
-          $("roundWinner").textContent = st.lastWinner.name;
-          $("roundInfo").textContent = `Người thắng ở vòng ${st.round}`;
-        }
-      });
-    }
-
-    function bindPlayer(code) {
-      $("btnBuzzer").onclick = async () => {
-        try {
-          const a = Math.floor(Math.random() * 6);
-          let b; do { b = Math.floor(Math.random() * 6); } while (b === a);
-          const ans = a + b;
-          const input = prompt(`Giải nhanh: ${a} + ${b} = ?`);
-          if (input === null) return;
-          if (parseInt(input) !== ans) {
-            toast("Sai phép toán, không được ghi nhận!");
-            return;
-          }
-          const stateRef = ref(db, `rooms/${code}/state`);
-          const res = await runTransaction(stateRef, (s) => {
-            if (!s) return s;
-            if (!s.canBuzz) return s;
-            s.canBuzz = false;
-            s.lastWinner = { id: store.me.id, name: store.me.name };
-            s.lastAt = Date.now();
-            return s;
-          });
-        } catch (e) { console.error(e); }
-      };
-      onValue(ref(db, "rooms/" + code + "/state"), (snap) => {
-        const st = snap.val();
-        if (!st) return;
-        if (st.lastWinner) {
-          $("winnerText").textContent = st.lastWinner.name;
-          $("statusText").textContent = "Đã có người thắng!";
-        } else {
-          $("winnerText").textContent = "—";
-        }
-      });
-    }
+    // Nộp câu trả lời
+    document.getElementById("submitAnswer").onclick = () => {
+      const val = parseInt(document.getElementById("answerInput").value);
+      if (val === correctAnswer) {
+        alert("Đúng!");
+      } else {
+        alert("Sai!");
+      }
+      document.getElementById("questionPopup").style.display = "none";
+    };
   </script>
 </body>
 </html>
