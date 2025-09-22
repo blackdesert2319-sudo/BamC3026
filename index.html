@@ -37,11 +37,10 @@
   </div>
 
   <script type="module">
-    // Import Firebase
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
-    import { getDatabase, ref, set, get, child, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-database.js";
+    import { getDatabase, ref, set, get, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-database.js";
 
-    // Config Firebase của bạn
+    // Firebase config (đã sửa storageBucket + thêm databaseURL đúng)
     const firebaseConfig = {
       apiKey: "AIzaSyAAdt8pjiOTBCFuDEv_1BWZlPQYtJBWdZY",
       authDomain: "appchuong-c3fb8.firebaseapp.com",
@@ -52,7 +51,6 @@
       appId: "1:794046720932:web:8fe3166394b7e366dbaf31"
     };
 
-    // Khởi tạo
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
@@ -63,7 +61,7 @@
 
     // Tạo phòng
     document.getElementById("createRoom").onclick = async () => {
-      const room = document.getElementById("roomId").value;
+      const room = document.getElementById("roomId").value.trim();
       if (!room) return alert("Nhập mã phòng");
       await set(ref(db, "rooms/" + room), {
         started: false,
@@ -71,18 +69,17 @@
         question: null
       });
       currentRoom = room;
-      playerName = document.getElementById("playerName").value;
+      playerName = document.getElementById("playerName").value.trim() || "Người chơi";
       document.getElementById("status").innerText = "Đã tạo phòng " + room;
     };
 
     // Vào phòng
     document.getElementById("joinRoom").onclick = async () => {
-      const room = document.getElementById("roomId").value;
+      const room = document.getElementById("roomId").value.trim();
       if (!room) return alert("Nhập mã phòng");
       currentRoom = room;
-      playerName = document.getElementById("playerName").value;
+      playerName = document.getElementById("playerName").value.trim() || "Người chơi";
       document.getElementById("status").innerText = "Đã vào phòng " + room;
-      // Theo dõi trạng thái phòng
       onValue(ref(db, "rooms/" + room), snapshot => {
         const data = snapshot.val();
         if (!data) return;
@@ -103,10 +100,9 @@
       });
     };
 
-    // Bắt đầu (tạo câu hỏi mới)
+    // Bắt đầu
     document.getElementById("startGame").onclick = async () => {
       if (!currentRoom) return alert("Chưa có phòng");
-      // Tạo phép toán ngẫu nhiên
       let a, b;
       do {
         a = Math.floor(Math.random() * 6);
@@ -126,9 +122,7 @@
       if (!canBuzz) return;
       canBuzz = false;
       document.getElementById("buzzBtn").disabled = true;
-      // Delay 3 giây trước khi chấp nhận
       setTimeout(async () => {
-        // Ghi nhận người bấm
         const roomRef = ref(db, "rooms/" + currentRoom);
         const snap = await get(roomRef);
         const data = snap.val();
@@ -138,13 +132,11 @@
       }, 3000);
     };
 
-    // Hiển thị popup câu hỏi
     function showQuestion(text) {
       document.getElementById("questionText").innerText = text;
       document.getElementById("questionPopup").style.display = "block";
     }
 
-    // Nộp câu trả lời
     document.getElementById("submitAnswer").onclick = () => {
       const val = parseInt(document.getElementById("answerInput").value);
       if (val === correctAnswer) {
