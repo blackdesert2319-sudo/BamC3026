@@ -1,469 +1,226 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Ai Nhanh Hơn — Bấm Chuông (C1)</title>
+  <meta charset="UTF-8">
+  <title>Game Bấm Chuông</title>
   <style>
-    :root{--bg:#071028;--card:#0b1224;--muted:#94a3b8;--text:#e5e7eb;--accent:#22c55e;--warn:#f59e0b;--danger:#ef4444}
-    *{box-sizing:border-box}
-    body{margin:0;background:linear-gradient(180deg,#061426,#08102a);font-family:Inter,system-ui,Segoe UI,Roboto;color:var(--text);display:flex;align-items:center;justify-content:center;padding:18px;min-height:100vh}
-    .app{width:min(1100px,98vw);background:rgba(2,6,23,0.6);border-radius:12px;border:1px solid #122033;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.6)}
-    header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #10243a}
-    header h1{margin:0;font-size:18px}
-    main{display:grid;grid-template-columns:360px 1fr;gap:16px;padding:18px}
-    .card{background:linear-gradient(180deg, rgba(4,8,20,0.6), rgba(6,10,24,0.4)); border:1px solid #122033; border-radius:10px; padding:12px}
-    label{display:block;color:var(--muted);margin-bottom:6px}
-    input[type="text"]{width:100%;padding:10px;border-radius:8px;border:1px solid #193047;background:#041224;color:var(--text)}
-    .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;border:1px solid #143447;background:#072b3f;color:var(--text);cursor:pointer;font-weight:600}
-    .btn.primary{background:linear-gradient(180deg,#2563eb,#0ea5e9);color:white;border:none}
-    .btn.success{background:linear-gradient(180deg,#16a34a,#22c55e);color:white;border:none}
-    .btn.warn{background:linear-gradient(180deg,#f59e0b,#d97706);color:black;border:none}
-    .btn.danger{background:linear-gradient(180deg,#ef4444,#dc2626);color:white;border:none}
-    .muted{color:var(--muted);font-size:13px}
-    .playerList{max-height:340px;overflow:auto;margin-top:8px;border-radius:8px;border:1px dashed #0f3b58;padding:6px}
-    .row{display:flex;align-items:center;justify-content:space-between;padding:8px;border-bottom:1px dashed #072235}
-    .row:last-child{border-bottom:none}
-    .center{text-align:center}
-    .buzzer{width:100%;padding:30px;border-radius:16px;font-size:28px;font-weight:900;cursor:pointer;background:linear-gradient(180deg,#ef4444,#991b1b);box-shadow:0 18px 0 #7f1d1d;color:white;border:none}
-    .buzzer.disabled{filter:grayscale(.7) brightness(.7);cursor:not-allowed}
-    .hidden{display:none!important}
-    .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;background:#07142a;border:1px solid #132a3f;padding:10px 14px;border-radius:10px}
-    #popup{display:flex;align-items:center;justify-content:center;position:fixed;inset:0;background:rgba(0,0,0,0.7)}
-    #popup .box{background:#041224;padding:18px;border-radius:12px;border:1px solid #0f3b58;width:min(460px,92vw);text-align:center}
-    .small{font-size:13px;padding:6px 8px;border-radius:8px}
+    body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
+    .hidden { display: none; }
+    button { padding: 10px 20px; margin: 5px; font-size: 16px; }
+    #status { margin: 20px; font-size: 20px; font-weight: bold; }
+    #questionBox { font-size: 24px; margin: 20px; }
   </style>
 </head>
 <body>
-  <div class="app">
-    <header>
-      <h1>⚡ Ai Nhanh Hơn — Bấm Chuông (GV bấm START)</h1>
-      <div id="roomTag" class="muted">—</div>
-    </header>
+  <h1>📢 Game Bấm Chuông</h1>
 
-    <main>
-      <!-- left: login / host controls -->
-      <div>
-        <div class="card" id="loginCard">
-          <label for="nameInput">Tên (Nhập tên, hệ thống sẽ thêm số nếu trùng)</label>
-          <input id="nameInput" type="text" placeholder="Ví dụ: Minh" />
-          <div style="margin-top:10px;display:flex;gap:8px">
-            <button id="btnCreate" class="btn success">TẠO PHÒNG (GV)</button>
-            <button id="btnJoin" class="btn primary">VÀO PHÒNG (HS)</button>
-          </div>
-          <p class="muted" style="margin-top:10px">• GV phải bấm <strong>BẮT ĐẦU</strong> để mở lượt. • Mỗi lượt có 1 phép toán chung.</p>
-        </div>
-
-        <div class="card hidden" id="hostCard">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <div>
-              <div><strong>Mã phòng:</strong> <span id="hostCode">—</span></div>
-              <div class="muted" id="hostStatus">Vòng: —</div>
-            </div>
-            <div style="display:flex;flex-direction:column;gap:8px">
-              <button id="btnStart" class="btn primary">BẮT ĐẦU</button>
-              <button id="btnReset" class="btn">RESET</button>
-            </div>
-          </div>
-
-          <hr style="margin:10px 0;border:none;border-top:1px solid #0e2233" />
-
-          <div style="display:flex;gap:8px;align-items:center">
-            <div><strong>Người đang trả lời:</strong> <span id="currentAnswerer">—</span></div>
-            <div style="margin-left:auto;display:flex;gap:8px">
-              <button id="btnCorrect" class="btn success">✅ ĐÚNG</button>
-              <button id="btnWrong" class="btn warn">❌ SAI (mini-round)</button>
-              <button id="btnEnd" class="btn danger">⛔ KẾT THÚC CÂU</button>
-            </div>
-          </div>
-
-          <hr style="margin:10px 0;border:none;border-top:1px solid #0e2233" />
-
-          <div><strong>Danh sách học sinh:</strong>
-            <div id="playerList" class="playerList"></div>
-          </div>
-
-          <div style="margin-top:10px">
-            <strong>Lịch sử:</strong>
-            <div id="history" class="playerList"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- right: player screen -->
-      <div>
-        <div class="card" id="playerCard" style="min-height:420px;">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <div>
-              <div class="muted">Bạn là:</div>
-              <div id="meName" style="font-weight:800">—</div>
-            </div>
-            <div class="center">
-              <div class="muted">Trạng thái vòng</div>
-              <div id="stateTag" style="font-weight:900">—</div>
-            </div>
-            <div class="center">
-              <div class="muted">Người thắng (nếu có)</div>
-              <div id="winnerName" style="font-weight:900">—</div>
-            </div>
-          </div>
-
-          <hr style="margin:12px 0;border:none;border-top:1px solid #0e2233" />
-
-          <div id="playerArea" class="center" style="gap:12px">
-            <div id="readyArea">
-              <button id="btnBuzzer" class="buzzer">CHUÔNG</button>
-              <div class="muted">Chờ GV bấm BẮT ĐẦU để mở lượt.</div>
-            </div>
-
-            <div id="answeringArea" class="hidden">
-              <div style="font-weight:800">⏳ Người đang trả lời: <span id="answeringWho">—</span></div>
-              <div class="muted">GV sẽ bấm ĐÚNG / SAI</div>
-            </div>
-
-            <div id="finalArea" class="hidden">
-              <div id="finalText" style="font-size:20px;font-weight:900"></div>
-              <div class="muted">Chờ GV bấm RESET để câu mới.</div>
-            </div>
-          </div>
-
-          <div style="margin-top:12px;display:flex;gap:8px;justify-content:center">
-            <button id="btnLeave" class="btn small">Rời phòng</button>
-            <button id="btnRefresh" class="btn small">Làm mới</button>
-          </div>
-        </div>
-
-        <div id="toast" class="toast hidden"></div>
-      </div>
-    </main>
+  <div id="roleSelect">
+    <button onclick="chooseRole('teacher')">Tôi là Giáo viên</button>
+    <button onclick="chooseRole('student')">Tôi là Học sinh</button>
   </div>
 
-  <!-- popup question (hidden) -->
-  <div id="popup" class="hidden" aria-hidden="true">
-    <div class="box">
-      <h2 id="questionText" style="font-size:28px;margin:0 0 12px 0">2 + 3 = ?</h2>
-      <input id="answerInput" type="number" style="font-size:20px;padding:8px;width:120px;text-align:center;border-radius:8px;border:1px solid #0f3b58;background:#021826;color:var(--text)" />
-      <div style="margin-top:12px;display:flex;gap:8px;justify-content:center">
-        <button id="btnSubmitAnswer" class="btn success">XÁC NHẬN</button>
-        <button id="btnCancelAnswer" class="btn">HỦY</button>
-      </div>
+  <!-- Giáo viên -->
+  <div id="teacherUI" class="hidden">
+    <h2>👩‍🏫 Giáo viên</h2>
+    <button onclick="createRoom()">Tạo phòng</button>
+    <input id="teacherRoomId" placeholder="Mã phòng" readonly>
+    <div id="teacherControls" class="hidden">
+      <button onclick="startRound()">BẮT ĐẦU</button>
+      <button onclick="markCorrect()">✅ Đúng</button>
+      <button onclick="markWrong()">❌ Sai</button>
+      <button onclick="resetGame()">RESET</button>
+      <div id="status"></div>
     </div>
   </div>
 
-  <!-- Firebase compat SDK (dễ copy) -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <!-- Học sinh -->
+  <div id="studentUI" class="hidden">
+    <h2>👨‍🎓 Học sinh</h2>
+    <input id="roomInput" placeholder="Nhập mã phòng">
+    <input id="playerName" placeholder="Tên của bạn">
+    <button onclick="joinRoom()">Vào phòng</button>
+    <div id="studentControls" class="hidden">
+      <button id="buzzBtn" onclick="buzz()">🔔 Bấm Chuông</button>
+      <div id="questionBox"></div>
+      <div id="status"></div>
+    </div>
+  </div>
 
-  <script>
-    // ====== CẤU HÌNH FIREBASE: thay bằng cấu hình của bạn ======
+  <script type="module">
+    // Import Firebase
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+    import { getDatabase, ref, set, get, onValue, update, push, child } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
+
+    // Cấu hình Firebase của bạn
     const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT.firebaseapp.com",
-      databaseURL: "https://YOUR_PROJECT.firebaseio.com",
-      projectId: "YOUR_PROJECT",
-      storageBucket: "YOUR_PROJECT.appspot.com",
-      messagingSenderId: "SENDER_ID",
-      appId: "APP_ID"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-
-    // ====== HẰNG SỐ ======
-    const ROOM = 'room-demo-1'; // bạn có thể thay thành mã phòng động nếu muốn
-    const stateRef = db.ref(`rooms/${ROOM}/state`);
-    const playersRef = db.ref(`rooms/${ROOM}/players`);
-    const historyRef = db.ref(`rooms/${ROOM}/history`);
-
-    // ====== UI helpers ======
-    const $ = id => document.getElementById(id);
-    const toast = (t) => {
-      const el = $('toast'); el.textContent = t; el.classList.remove('hidden'); clearTimeout(toast._tm);
-      toast._tm = setTimeout(()=> el.classList.add('hidden'), 2200);
+      apiKey: "AIzaSyAAdt8pjiOTBCFuDEv_1BWZlPQYtJBWdZY",
+      authDomain: "appchuong-c3fb8.firebaseapp.com",
+      projectId: "appchuong-c3fb8",
+      storageBucket: "appchuong-c3fb8.firebasestorage.app",
+      messagingSenderId: "794046720932",
+      appId: "1:794046720932:web:8fe3166394b7e366dbaf31",
+      measurementId: "G-1W7BYFTQNX",
+      databaseURL: "https://appchuong-c3fb8-default-rtdb.firebaseio.com/"
     };
 
-    // ====== Local store ======
-    const local = { me: null, room: ROOM, isHost: false };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-    // ====== Tạo phòng (GV) ======
-    $('btnCreate').addEventListener('click', async () => {
-      let name = ($('nameInput').value || 'Giáo viên').trim();
-      const id = crypto.randomUUID();
-      // init room structure
-      await db.ref(`rooms/${ROOM}`).set({
-        createdAt: Date.now(),
-        hostId: id,
-        hostName: name,
+    let role = null;
+    let currentRoomId = null;
+    let playerId = null;
+    let playerName = null;
+
+    // Chọn vai trò
+    window.chooseRole = (r) => {
+      role = r;
+      document.getElementById("roleSelect").classList.add("hidden");
+      if (r === "teacher") {
+        document.getElementById("teacherUI").classList.remove("hidden");
+      } else {
+        document.getElementById("studentUI").classList.remove("hidden");
+      }
+    };
+
+    // Giáo viên tạo phòng
+    window.createRoom = () => {
+      const roomId = Math.floor(1000 + Math.random() * 9000).toString();
+      set(ref(db, "rooms/" + roomId), {
         state: {
-          round: 0,
           canBuzz: false,
-          question: null,
           winnerId: null,
           winnerName: null,
-          currentPlayer: null,
-          excluded: {}
+          question: null,
+          currentPlayer: null
         },
         players: {}
       });
-      // add host as player
-      name = await assignUniqueName(name);
-      await db.ref(`rooms/${ROOM}/players/${id}`).set({ id, name, online: true });
-      local.me = { id, name }; local.isHost = true; saveLocal();
-      $('hostCode').textContent = ROOM;
-      $('roomTag').textContent = ROOM;
-      showHostUI();
-      bindHost();
-      bindStateListener();
-      toast('Đã tạo phòng (GV)');
-    });
+      currentRoomId = roomId;
+      document.getElementById("teacherRoomId").value = roomId;
+      document.getElementById("teacherControls").classList.remove("hidden");
+      listenRoom(roomId);
+    };
 
-    // ====== Vao phong (HS) ======
-    $('btnJoin').addEventListener('click', async () => {
-      let name = ($('nameInput').value || 'Học sinh').trim();
-      const roomSnap = await db.ref(`rooms/${ROOM}`).get();
-      if (!roomSnap.exists()) { toast('Phòng chưa tồn tại — GV cần tạo trước'); return; }
-      name = await assignUniqueName(name);
-      const id = crypto.randomUUID();
-      await db.ref(`rooms/${ROOM}/players/${id}`).set({ id, name, online: true });
-      local.me = { id, name }; local.isHost = false; saveLocal();
-      showPlayerUI();
-      bindPlayer();
-      bindStateListener();
-      toast(`Vào phòng với tên ${name}`);
-    });
+    // Học sinh vào phòng
+    window.joinRoom = async () => {
+      const roomId = document.getElementById("roomInput").value.trim();
+      const name = document.getElementById("playerName").value.trim();
+      if (!roomId || !name) return alert("Nhập mã phòng và tên");
 
-    // ====== Name uniqueness (add numeric suffix if needed) ======
-    async function assignUniqueName(desired) {
-      const snap = await db.ref(`rooms/${ROOM}/players`).get();
-      const list = snap.exists() ? snap.val() : {};
-      let maxIndex = 0;
-      Object.values(list).forEach(p => {
-        if (!p || !p.name) return;
-        if (p.name === desired) maxIndex = Math.max(maxIndex, 1);
-        const m = (p.name + '').match(new RegExp(`^${escapeRegExp(desired)} (\\d+)$`));
-        if (m) maxIndex = Math.max(maxIndex, Number(m[1]));
+      const snap = await get(ref(db, "rooms/" + roomId));
+      if (!snap.exists()) return alert("Phòng không tồn tại");
+
+      currentRoomId = roomId;
+      playerId = push(child(ref(db), "tmp")).key;
+
+      // Xử lý trùng tên
+      const players = snap.val().players || {};
+      let finalName = name;
+      let count = 0;
+      Object.values(players).forEach(p => {
+        if (p.name.startsWith(name)) count++;
       });
-      if (maxIndex === 0) return desired;
-      return `${desired} ${maxIndex + 1}`;
-    }
-    function escapeRegExp(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+      if (count > 0) finalName = `${name} ${count + 1}`;
+      playerName = finalName;
 
-    // ====== Save/load local ======
-    function saveLocal(){ localStorage.setItem('buzzer_local', JSON.stringify(local)); }
-    function loadLocal(){ try { const d=JSON.parse(localStorage.getItem('buzzer_local')||'{}'); if (d.me) local.me=d.me; if (d.isHost) local.isHost=d.isHost; } catch{} }
-    loadLocal();
-    if (local.me && local.isHost) { $('hostCode').textContent = ROOM; $('roomTag').textContent = ROOM; showHostUI(); bindHost(); bindStateListener(); }
-    if (local.me && !local.isHost) { showPlayerUI(); bindPlayer(); bindStateListener(); }
+      await set(ref(db, "rooms/" + roomId + "/players/" + playerId), {
+        name: playerName
+      });
 
-    // ====== UI show/hide ======
-    function showHostUI(){ $('loginCard').classList.add('hidden'); $('hostCard').classList.remove('hidden'); $('playerCard').classList.remove('hidden'); $('meName').textContent = local.me?.name || '—'; }
-    function showPlayerUI(){ $('loginCard').classList.add('hidden'); $('hostCard').classList.add('hidden'); $('playerCard').classList.remove('hidden'); $('meName').textContent = local.me?.name || '—'; }
+      document.getElementById("studentControls").classList.remove("hidden");
+      listenRoom(roomId);
+    };
 
-    // ====== Host controls ======
-    function bindHost(){
-      $('btnStart').onclick = async () => {
-        // increment round, generate question, clear excluded, open buzz
-        const a = Math.floor(Math.random()*6);
-        let b; do { b = Math.floor(Math.random()*6); } while (b === a);
-        await stateRef.transaction(s => {
-          if (!s) s = {};
-          s.round = (s.round || 0) + 1;
-          s.canBuzz = true;
-          s.question = { a, b };
-          s.winnerId = null;
-          s.winnerName = null;
-          s.currentPlayer = null;
-          s.excluded = {}; // clear exclusions for new round
-          return s;
-        });
-        toast(`Bắt đầu vòng ${ (await stateRef.child('round').get()).val() || '?' } — Câu: ${a} + ${b}`);
-      };
+    // Giáo viên bắt đầu vòng
+    window.startRound = () => {
+      if (!currentRoomId) return;
+      const a = Math.floor(Math.random() * 6);
+      let b;
+      do { b = Math.floor(Math.random() * 6); } while (b === a);
 
-      $('btnReset').onclick = async () => {
-        if (!confirm('RESET: kết thúc câu, xóa kết quả hiện tại?')) return;
-        await stateRef.update({ canBuzz: false, question: null, winnerId: null, winnerName: null, currentPlayer: null, excluded: {} });
-        toast('Đã RESET — chuẩn bị cho câu mới (GV bấm BẮT ĐẦU)');
-      };
+      update(ref(db, "rooms/" + currentRoomId + "/state"), {
+        canBuzz: true,
+        winnerId: null,
+        winnerName: null,
+        currentPlayer: null,
+        question: { a, b }
+      });
+    };
 
-      $('btnCorrect').onclick = async () => {
-        const sSnap = await stateRef.get();
-        const s = sSnap.val() || {};
-        if (!s.winnerId) { toast('Chưa có người thắng để xác nhận'); return; }
-        // push history
-        await historyRef.push({ round: s.round || 0, winnerId: s.winnerId, winnerName: s.winnerName, at: Date.now() });
-        // lock until GV reset
-        await stateRef.update({ canBuzz: false });
-        toast(`Xác nhận ĐÚNG: ${s.winnerName}`);
-      };
-
-      $('btnWrong').onclick = async () => {
-        // nếu không có winner, but maybe current player - get that
-        const sSnap = await stateRef.get();
-        const s = sSnap.val() || {};
-        const loserId = s.winnerId || s.currentPlayer;
-        if (!loserId) { toast('Chưa có người để loại'); return; }
-        // mark excluded for this round
-        const upd = {};
-        upd[`players/${loserId}/eliminated_${s.round || 0}`] = true;
-        // mark excluded in state too
-        await db.ref(`rooms/${ROOM}/state/excluded/${loserId}`).set(true);
-        // clear winner/currentPlayer and generate new question and open canBuzz true
-        const a = Math.floor(Math.random()*6);
-        let b; do { b = Math.floor(Math.random()*6); } while (b === a);
-        await stateRef.update({ winnerId: null, winnerName: null, currentPlayer: null, question: { a,b }, canBuzz: true });
-        toast(`Đã loại người chơi. Mở mini-round mới (Câu: ${a} + ${b})`);
-      };
-
-      $('btnEnd').onclick = async () => {
-        if (!confirm('Kết thúc câu này không chọn người thắng?')) return;
-        await stateRef.update({ canBuzz: false, question: null, winnerId: null, winnerName: null, currentPlayer: null });
-        toast('Câu kết thúc bởi GV.');
-      };
-    }
-
-    // ====== Player side ======
-    function bindPlayer(){
-      // buzzer click: if canBuzz true and not excluded, open popup for question for this player
-      $('btnBuzzer').onclick = async () => {
-        if (!local.me) { toast('Bạn chưa vào phòng'); return; }
-        const sSnap = await stateRef.get();
-        const s = sSnap.val();
-        if (!s || !s.canBuzz) { toast('Chưa mở lượt — chờ GV bấm BẮT ĐẦU'); return; }
-        // check excluded
-        if (s.excluded && s.excluded[local.me.id]) { toast('Bạn đã bị loại vòng này'); return; }
-        // open popup with question from state
-        const q = s.question;
-        if (!q) { toast('Câu chưa sẵn sàng'); return; }
-        $('questionText').textContent = `${q.a} + ${q.b} = ?`;
-        $('answerInput').value = '';
-        $('popup').classList.remove('hidden'); $('popup').setAttribute('aria-hidden','false');
-        // store question to verify on submit
-        window._activeQuestion = q;
-      };
-
-      $('btnCancelAnswer').onclick = () => { $('popup').classList.add('hidden'); $('popup').setAttribute('aria-hidden','true'); window._activeQuestion = null; };
-
-      $('btnSubmitAnswer').onclick = async () => {
-        const q = window._activeQuestion;
-        if (!q) return;
-        const val = parseInt($('answerInput').value);
-        $('popup').classList.add('hidden'); $('popup').setAttribute('aria-hidden','true'); window._activeQuestion = null;
-        if (Number.isNaN(val)) { toast('Nhập đáp án hợp lệ'); return; }
-        if (val !== (q.a + q.b)) {
-          // sai → nothing else; teacher may decide; we just show feedback
-          toast('Sai đáp án — bạn không được quyền lần này');
-          // Optionally mark elimination? Better left to GV via ❌ button
-          return;
-        }
-        // đúng → cố gắng set winner via transaction: chỉ 1 người đầu tiên được ghi winner
-        try {
-          await stateRef.transaction(s => {
-            if (!s) return s;
-            // if already has winner -> do nothing
-            if (s.winnerId) return s;
-            // also if this player was excluded (race) -> do nothing
-            if (s.excluded && s.excluded[local.me.id]) return s;
-            // set winner
-            s.winnerId = local.me.id;
-            s.winnerName = local.me.name;
-            s.canBuzz = false; // lock further buzz until GV handles (or until mini-round)
-            return s;
-          }, (error, committed, snapshot) => {
-            if (error) {
-              console.error('Transaction error', error);
-              toast('Lỗi khi xác nhận câu trả lời');
-            } else if (!committed) {
-              toast('Đã có người khác trả lời đúng trước bạn');
-            } else {
-              toast('Bạn trả lời đúng — đã ghi nhận (chờ GV xác nhận)');
+    // Học sinh bấm chuông
+    window.buzz = () => {
+      if (!currentRoomId || !playerId) return;
+      const questionRef = ref(db, "rooms/" + currentRoomId + "/state/question");
+      get(questionRef).then(snap => {
+        if (!snap.exists()) return;
+        const q = snap.val();
+        const ans = prompt(`${q.a} + ${q.b} = ?`);
+        if (ans && parseInt(ans) === q.a + q.b) {
+          const stateRef = ref(db, "rooms/" + currentRoomId + "/state");
+          get(stateRef).then(s => {
+            const st = s.val();
+            if (st.canBuzz && !st.winnerId) {
+              update(stateRef, {
+                winnerId: playerId,
+                winnerName: playerName,
+                canBuzz: false,
+                currentPlayer: playerId
+              });
             }
-          }, false);
-        } catch(e) {
-          console.error(e); toast('Lỗi khi submit đáp án');
+          });
+        } else {
+          alert("Sai rồi!");
         }
-      };
+      });
+    };
 
-      // leave / refresh
-      $('btnLeave').onclick = async () => {
-        if (!local.me) return;
-        await db.ref(`rooms/${ROOM}/players/${local.me.id}/online`).set(false);
-        local.me = null; local.isHost = false; saveLocal();
-        location.reload();
-      };
-      $('btnRefresh').onclick = () => location.reload();
-    }
+    // Giáo viên đánh dấu đúng
+    window.markCorrect = () => {
+      if (!currentRoomId) return;
+      document.getElementById("status").innerText = "✅ Câu trả lời đúng!";
+    };
 
-    // ====== State listener (both GV & HS) ======
-    function bindStateListener(){
-      stateRef.on('value', async snap => {
-        const s = snap.val() || {};
-        // update basic UI
-        $('hostStatus').textContent = `Vòng: ${s.round || 0} — ${s.canBuzz ? 'Đang mở' : (s.winnerId ? 'Đã có người thắng' : 'Đang khoá')}`;
-        $('stateTag').textContent = s.canBuzz ? 'Sẵn sàng bấm' : (s.winnerId ? 'Đã có người thắng' : 'Đang khoá');
-        $('winnerName').textContent = s.winnerName || '—';
+    // Giáo viên đánh dấu sai -> mở mini round
+    window.markWrong = () => {
+      if (!currentRoomId) return;
+      startRound(); // tạo phép toán mới cho mini round
+    };
 
-        // host view current answerer (from winnerId concept)
-        $('currentAnswerer').textContent = s.winnerId ? (s.winnerName || s.winnerId) : '—';
+    // Giáo viên reset
+    window.resetGame = () => {
+      if (!currentRoomId) return;
+      update(ref(db, "rooms/" + currentRoomId + "/state"), {
+        canBuzz: false,
+        winnerId: null,
+        winnerName: null,
+        currentPlayer: null,
+        question: null
+      });
+      document.getElementById("status").innerText = "";
+    };
 
-        // player view
-        if (local.me && !local.isHost) {
-          // if winner exists -> show final
-          if (s.winnerId) {
-            $('finalArea').classList.remove('hidden'); $('finalText').textContent = `🏆 ${s.winnerName || '—'}`;
-            $('readyArea').classList.add('hidden'); $('answeringArea').classList.add('hidden');
-            $('btnBuzzer').classList.add('disabled'); $('btnBuzzer').disabled = true;
-          } else if (s.currentPlayer) {
-            // show who is answering (if teacher allows currentPlayer via winnerId earlier we used winner concept; here currentPlayer not used)
-            $('answeringArea').classList.remove('hidden'); $('answeringWho').textContent = s.currentPlayerName || s.currentPlayer || '—';
-            $('readyArea').classList.add('hidden');
-            $('btnBuzzer').classList.add('disabled'); $('btnBuzzer').disabled = true;
-          } else if (s.canBuzz && !(s.excluded && s.excluded[local.me.id])) {
-            $('readyArea').classList.remove('hidden'); $('btnBuzzer').classList.remove('disabled'); $('btnBuzzer').disabled = false;
-            $('answeringArea').classList.add('hidden'); $('finalArea').classList.add('hidden');
+    // Lắng nghe phòng
+    function listenRoom(roomId) {
+      onValue(ref(db, "rooms/" + roomId + "/state"), snap => {
+        if (!snap.exists()) return;
+        const st = snap.val();
+
+        // Hiển thị câu hỏi cho học sinh
+        if (role === "student") {
+          const qb = document.getElementById("questionBox");
+          if (st.question) {
+            qb.innerText = `${st.question.a} + ${st.question.b} = ?`;
           } else {
-            $('readyArea').classList.remove('hidden'); $('answeringArea').classList.add('hidden'); $('finalArea').classList.add('hidden');
-            $('btnBuzzer').classList.add('disabled'); $('btnBuzzer').disabled = true;
+            qb.innerText = "";
           }
         }
 
-        // update player list + show excluded marker
-        const playersSnap = await playersRef.get();
-        const players = playersSnap.exists() ? playersSnap.val() : {};
-        renderPlayerList(players, s.excluded || {});
-        // update history view
-        const hSnap = await historyRef.get();
-        const hist = hSnap.exists() ? hSnap.val() : {};
-        renderHistory(hist);
+        // Hiển thị trạng thái chung
+        if (st.winnerName) {
+          document.getElementById("status").innerText = `🏆 ${st.winnerName} chiến thắng!`;
+        }
       });
     }
-
-    function renderPlayerList(players, excludedMap){
-      const box = $('playerList'); box.innerHTML = '';
-      Object.values(players || {}).forEach(p => {
-        const r = document.createElement('div'); r.className='row';
-        const left = document.createElement('div'); left.innerHTML = `<div style="font-weight:800">${p.name}</div><div class="muted" style="font-size:12px">${p.online ? 'online' : 'offline'}</div>`;
-        const right = document.createElement('div'); right.innerHTML = `${excludedMap && excludedMap[p.id] ? '<span style="color:var(--warn)">Bị loại</span>' : '<span class="muted">'+p.id.slice(-4)+'</span>'}`;
-        r.appendChild(left); r.appendChild(right); box.appendChild(r);
-      });
-    }
-    function renderHistory(hist){
-      const box = $('history'); box.innerHTML = '';
-      Object.values(hist || {}).reverse().slice(0,30).forEach(h => {
-        const r = document.createElement('div'); r.className='row';
-        r.innerHTML = `<div>${h.winnerName || '—'}</div><div class="muted" style="font-size:12px">${new Date(h.at).toLocaleTimeString('vi-VN')}</div>`;
-        box.appendChild(r);
-      });
-    }
-
-    // ====== Misc: restore session UI if local info present ======
-    window.addEventListener('load', async () => {
-      if (local.me) {
-        $('meName').textContent = local.me.name;
-        if (local.isHost) { showHostUI(); bindHost(); bindStateListener(); }
-        else { showPlayerUI(); bindPlayer(); bindStateListener(); }
-      } else {
-        // default view: login shown
-      }
-    });
   </script>
 </body>
 </html>
